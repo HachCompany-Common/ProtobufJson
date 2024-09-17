@@ -748,31 +748,47 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
   if (std::string value_type_name; getDataTypeName<T>(value_type_name)) {
     for ( auto const& [enum_name, key_value]:enum_list) {
 
-      std::stringstream mapStream;
+      if (value_type_name == "float" || value_type_name == "double") {
+        std::stringstream mapStream;
 
-      // Create the map header
-      mapStream << "static std::map<uint32_t," + value_type_name + "> kMap" << enum_name << " = {" << std::endl;
+        // Create the map header
+        mapStream << "static std::map<uint32_t," + value_type_name + "> kMap" << enum_name << " = {" << std::endl;
 
-      // Generate the enum header
-      std::cout << "// " << enum_name << ": enum and map list" << std::endl;
-      const std::string uint32_header = "enum class Enum" + enum_name + ": uint32_t {";
-      std::cout << uint32_header << std::endl;
-      uint i= 0;
-      for (auto const& [key, value]: key_value) {
-        // Generate the enum body
-        const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" + key) + " = " + std::to_string(i) + ",";
-        std::cout << enumName << std::endl;
-        // create the map body
-        mapStream << "{" << i << "," << value << "}," << std::endl;
-        i++;
+        // Generate the enum header
+        std::cout << "// " << enum_name << ": enum and map list" << std::endl;
+        const std::string uint32_header = "enum class Enum" + enum_name + ": uint32_t {";
+        std::cout << uint32_header << std::endl;
+        uint i= 0;
+        for (auto const& [key, value]: key_value) {
+          // Generate the enum body
+          const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" + key) + " = " + std::to_string(i) + ",";
+          std::cout << enumName << std::endl;
+          // create the map body
+          mapStream << "{" << i << "," << value << "}," << std::endl;
+          i++;
+        }
+        // Generate the end of enum list
+        std::cout << "};" << std::endl << std::endl;
+
+        // Create the end of map
+        mapStream << "};";
+        // Output the whole map
+        std::cout << mapStream.str() << std::endl << std::endl;
       }
-      // Generate the end of enum list
-      std::cout << "};" << std::endl << std::endl;
+      else {
+        // Generate the enum header
+        std::cout << "// " << enum_name << ": enum list" << std::endl;
+        const std::string enum_header = "enum class Enum" + enum_name + ": " + value_type_name + " {";
+        std::cout << enum_header << std::endl;
 
-      // Create the end of map
-      mapStream << "};";
-      // Output the whole map
-      std::cout << mapStream.str() << std::endl << std::endl;
+        for (auto const& [key, value]: key_value) {
+          // Generate the enum body
+          const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" + key) + " = " + std::to_string(value) + ",";
+          std::cout << enumName << std::endl;
+        }
+        // Generate the end of enum list
+        std::cout << "};" << std::endl << std::endl;       
+      }
     }
   }
 }
@@ -815,7 +831,7 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
 void genertaeFileHeader() {
       const auto header =   R"(//--------------------------------------------------------------------------------------------------------------------//
 //! 
-//  Generated C++ header file from JSON. DO NOT EDIT!
+//  Generated header file from JSON. DO NOT EDIT!
 //! 
 //--------------------------------------------------------------------------------------------------------------------//
 

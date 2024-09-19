@@ -717,6 +717,7 @@ bool getMessageValueStringEnumList(std::shared_ptr<Message> message, const std::
       }
       return false;
 }
+
 // Read the parameter name
 bool getMessageParamName(std::shared_ptr<Message> message, const std::string &param_name, std::string &name)
 {
@@ -740,7 +741,34 @@ bool getMessageParamName(std::shared_ptr<Message> message, const std::string &pa
         }
       }
       return false;
- } 
+} 
+// Read the parameter name list
+bool getMessageParamNameList(std::shared_ptr<Message> message, const std::string &param_name, std::vector<std::string> &name_list)
+{
+      const Descriptor *desc       = message->GetDescriptor();
+      const Reflection *refl       = message->GetReflection();  
+      bool rtn = false; 
+      int fieldCount= desc->field_count();
+      //fprintf(stderr, "The count of the data message: %i and the name: %s\n",fieldCount, desc->name().c_str());
+      for(int i=0;i<fieldCount;i++)
+      {
+        const FieldDescriptor *field = desc->field(i);
+        if(field->type() == FieldDescriptor::TYPE_MESSAGE  && field->name() == param_name && field->is_repeated() )
+        {
+          //fprintf(stderr, "The count of the param list message: %i and the name: %s\n",refl->FieldSize(*message, field), field->name().c_str());
+          for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
+            const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
+            std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
+            std::string name;
+            if(getMessageStringValue(*m,"key",name)) {
+              name_list.push_back(name);
+              rtn = true;
+            }
+          }
+        }
+      }
+      return rtn;
+} 
 // Generate the number enum list
 template <typename T>
 void generateEnumList(const std::map<std::string, std::unordered_map<std::string, T>> &enum_list) {
@@ -1180,6 +1208,7 @@ int main(int argc, char** argv){
             mapStream <<"uint32_t type;" << std::endl;
             mapStream <<"uint32_t id;" << std::endl;
             mapStream <<"const char* name;" << std::endl;
+            mapStream <<"const char* params[];" << std::endl;
             mapStream << "};" << std::endl << std::endl;
         
             // Generate the map header
@@ -1196,16 +1225,23 @@ int main(int argc, char** argv){
               std::string name;
               uint32_t type;
               uint32_t id;
+              std::vector <std::string> key_list;
               if (getMessageStringValue(*m,"name",name) 
                 && getMessageFieldValue<uint32_t>(*m, "type", type)
                 && getMessageFieldValue<uint32_t>(*m, "id", id)) {
                 // Generate the enum body
                 const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(name) + "_" + std::to_string(type) + " = " + std::to_string(j) + ",";
                 std::cout << enumName << std::endl;
-
+                
                 // Generate the map body
                 mapStream << "{" << j << ", {" << type << "," << id 
-                << ",\"" << name << "\"}}," << std::endl;
+                << ",\"" << name << "\",{"; 
+                if (getMessageParamNameList(*m, "params", key_list)) {
+                  for (auto & key : key_list) {
+                    mapStream << "\"" << key << "\",";
+                  }
+                }
+                mapStream << "}}}," << std::endl;
               } 
             }
             // Generate the end of enum list

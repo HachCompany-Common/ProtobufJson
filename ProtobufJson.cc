@@ -319,6 +319,10 @@ void importFileDescriptor(const FileDescriptor* fd,
   }
 }
 
+// Define const string
+static const char * kEnumListName = "enum_list";
+static const char * kEnumItemName = "tag";
+
 // Return a pointer to a message
 std::shared_ptr<Message> * createMessageSharedPtr(const Message &message) {
     Message *copy = message.New();
@@ -548,7 +552,7 @@ bool getMessageEnumList(std::shared_ptr<Message> message, const std::string &enu
           std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
 
           // Get the key name
-          if (std::string key; getMessageStringValue(*m, "key", key)) {           
+          if (std::string key; getMessageStringValue(*m, kEnumItemName, key)) {           
             // Get the T value
             if (T value; getMessageFieldValue<T>(*m,"",value,true)) {
               key_value[key] = value;
@@ -582,7 +586,7 @@ bool getMessageStringEnumList(std::shared_ptr<Message> message, const std::strin
           std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
 
           // Get the key name
-          if (std::string key; getMessageStringValue(*m, "key", key)) {
+          if (std::string key; getMessageStringValue(*m, kEnumItemName, key)) {
             // Get the string value
             if (std::string value; getMessageStringValue(*m,"string_value",value,true)) {
               key_value[key] = value;
@@ -615,7 +619,7 @@ bool getMessageParamEnumList(std::shared_ptr<Message> message, const std::string
             
             T typeValue;
             std::unordered_map <std::string, T> keyValue;
-            if (getMessageEnumList<T>(*m, "enum_list", typeValue, keyValue)) {
+            if (getMessageEnumList<T>(*m, kEnumListName, typeValue, keyValue)) {
               const std::string enumName = name +  "_" + std::to_string(typeValue);
               std::unordered_map <std::string, T> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
@@ -647,7 +651,7 @@ bool getMessageParamStringEnumList(std::shared_ptr<Message> message, const std::
             
             std::string typeValue;
             std::unordered_map <std::string, std::string> keyValue;
-            if (getMessageStringEnumList(*m, "enum_list", typeValue, keyValue)) {
+            if (getMessageStringEnumList(*m, kEnumListName, typeValue, keyValue)) {
               const std::string enumName = name +  "_" + typeValue;
               std::unordered_map <std::string, std::string> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
@@ -678,7 +682,7 @@ bool getMessageValueEnumList(std::shared_ptr<Message> message, const std::string
             
           T typeValue;
           std::unordered_map <std::string, T> keyValue;
-          if (getMessageEnumList<T>(*m, "enum_list", typeValue, keyValue)) {
+          if (getMessageEnumList<T>(*m, kEnumListName, typeValue, keyValue)) {
             std::unordered_map <std::string, T> reversedKeyValue;
             for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
@@ -706,7 +710,7 @@ bool getMessageValueStringEnumList(std::shared_ptr<Message> message, const std::
             
           std::string typeValue;
           std::unordered_map <std::string, std::string> keyValue;
-          if (getMessageStringEnumList(*m, "enum_list", typeValue, keyValue)) {
+          if (getMessageStringEnumList(*m, kEnumListName, typeValue, keyValue)) {
             std::unordered_map <std::string, std::string> reversedKeyValue;
             for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
@@ -857,7 +861,7 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
  * 
  */
 void genertaeFileHeader() {
-      const auto header =   R"(//--------------------------------------------------------------------------------------------------------------------//
+  const auto header =   R"(//--------------------------------------------------------------------------------------------------------------------//
 //! 
 //  Generated header file from JSON. DO NOT EDIT!
 //! 
@@ -866,6 +870,7 @@ void genertaeFileHeader() {
 #pragma once
 #include <string>
 #include <map>
+#include <vector>
 
 namespace cdiProfile {)";
   std::cout << header << std::endl << std::endl;
@@ -1141,7 +1146,7 @@ int main(int argc, char** argv){
             structNameStr = std::string(options.structName);
           }
           else {
-            structNameStr =  std::string(options.messageName);           
+            structNameStr =  std::string(options.messageName);
           }
           // Generate the enum header
           const std::string enumHeader = "enum class Enum" + structNameStr + ": uint32_t {";
@@ -1198,6 +1203,47 @@ int main(int argc, char** argv){
             generateEnumList<float>(floatEnumList);
             generateStringEnumList(stringEnumList);
           }
+          else if (std::string(options.messageName) == "ResultList") {
+            // Store the map data
+            std::stringstream mapStream;
+
+        
+            // Generate the map header
+            mapStream << "static std::vector<std::vector<const char*> > kVector"
+            << structNameStr << " = {" << std::endl;
+
+            //std::cerr << refl->FieldSize(*message, field) << std::endl;
+            for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
+           
+              const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
+
+              std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
+
+              // Generate the enum body
+              const std::string enumName = "ENUM_"  + msgNameStr + "_CHANNEL_" + std::to_string(j) + " = " + std::to_string(j) + ",";
+              std::cout << enumName << std::endl;
+
+              std::vector <std::string> key_list;
+                
+              // Generate the vector body
+              mapStream << "{{";
+              if (getMessageParamNameList(*m, "measurementData", key_list)) {
+                for (auto & key : key_list) {
+                    mapStream << "\"" << key << "\",";
+                }
+                mapStream.seekp(-1, std::ios_base::end);
+              }
+              mapStream << "}}," << std::endl;
+               
+            }
+            // Generate the end of enum list
+            std::cout << "};" << std::endl << std::endl;
+
+            // Generate the end of map
+            mapStream << "};";
+            std::cout << mapStream.str() << std::endl << std::endl;
+
+          }          
           else if (std::string(options.messageName) == "EventList") {
             // Store the map data
             std::stringstream mapStream;
@@ -1208,7 +1254,7 @@ int main(int argc, char** argv){
             mapStream <<"uint32_t type;" << std::endl;
             mapStream <<"uint32_t id;" << std::endl;
             mapStream <<"const char* name;" << std::endl;
-            mapStream <<"const char* params[];" << std::endl;
+            mapStream <<"std::vector<const char*> params;" << std::endl;
             mapStream << "};" << std::endl << std::endl;
         
             // Generate the map header
@@ -1240,6 +1286,7 @@ int main(int argc, char** argv){
                   for (auto & key : key_list) {
                     mapStream << "\"" << key << "\",";
                   }
+                  mapStream.seekp(-1, std::ios_base::end);
                 }
                 mapStream << "}}}," << std::endl;
               } 

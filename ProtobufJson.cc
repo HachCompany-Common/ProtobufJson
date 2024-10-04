@@ -1218,9 +1218,10 @@ int main(int argc, char** argv){
               const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
 
               std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
-
+              uint32_t chn = j;
+              getMessageFieldValue<uint32_t>(*m, "measurementChannel", chn);
               // Generate the enum body
-              const std::string enumName = "ENUM_"  + msgNameStr + "_CHANNEL_" + std::to_string(j) + " = " + std::to_string(j) + ",";
+              const std::string enumName = "ENUM_"  + msgNameStr + "_CHANNEL_" + std::to_string(chn) + " = " + std::to_string(j) + ",";
               std::cout << enumName << std::endl;
 
               std::vector <std::string> key_list;

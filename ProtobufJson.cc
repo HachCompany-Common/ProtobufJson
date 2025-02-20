@@ -320,7 +320,7 @@ void importFileDescriptor(const FileDescriptor* fd,
 }
 
 // Define const string
-static const char * kEnumListName = "attributes";
+static const char * kEnumListName = "options";
 static const char * kEnumItemName = "label";
 
 // Return a pointer to a message

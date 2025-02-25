@@ -1,10 +1,11 @@
 UNAME_S := $(shell uname -s)
 
-CXXFLAGS ?= -Ilib/protobuf-3.21.2/dist/include
-LDLIBS ?= lib/protobuf-3.21.2/dist/lib/libprotobuf.a
+#CXXFLAGS ?= -Ilib/protobuf-3.21.2/dist/include
+#LDLIBS ?= lib/protobuf-3.21.2/dist/lib/libprotobuf.a
 
 ifeq ($(UNAME_S),Linux)
-	LDLIBS += -lstdc++fs -pthread
+#	LDLIBS += -lstdc++fs -pthread
+	LDLIBS += -lstdc++fs -pthread `pkg-config --cflags --libs protobuf`
 endif
 
 all: ProtoToJson JsonToProto

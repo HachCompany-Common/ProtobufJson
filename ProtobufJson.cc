@@ -97,7 +97,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 1.0\n"
+       "Version: 1.1\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -1320,7 +1320,7 @@ int main(int argc, char** argv){
               
               uint32_t code;
               std::string paramName;
-              if (getMessageFieldValue<decltype(code)>(*m,"code",code) && getMessageParamName(*m,"params", paramName)) {
+              if (getMessageFieldValue<decltype(code)>(*m,"code",code) && getMessageStringValue(*m,"key",paramName)) { //getMessageParamName(*m,"params", paramName)) {
                 // Generate the enum body
                 const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(paramName) + " = " + std::to_string(code) + ",";
                 std::cout << enumName << std::endl;

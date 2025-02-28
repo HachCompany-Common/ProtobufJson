@@ -1054,7 +1054,7 @@ int main(int argc, char** argv){
         // Interpret as base64 encoded binary protobuf.
         std::string binaryProto;
         if (!Base64Unescape(options.data, &binaryProto)) {
-          std::cout << "Failed to decode base64." << std::endl;
+          std::cerr << "Failed to decode base64." << std::endl;
           exit(1);
         }
         parseSuccessful = message->ParseFromString(binaryProto);
@@ -1064,7 +1064,7 @@ int main(int argc, char** argv){
       parseSuccessful = message->ParseFromIstream(&std::cin);
     }
     if (!parseSuccessful) {
-      std::cout << "Failed to parse protobuf message." << std::endl;
+      std::cerr << "Failed to parse protobuf message." << std::endl;
       exit(1);
     }
 
@@ -1076,7 +1076,7 @@ int main(int argc, char** argv){
     printOptions.always_print_enums_as_ints = false;
     conversionStatus = MessageToJsonString(*message, &jsonOutput, printOptions);
     if (!conversionStatus.ok()) {
-      std::cout << conversionStatus << std::endl;
+      std::cerr << conversionStatus << std::endl;
       exit(1);
     }
     std::cout << jsonOutput << std::endl;
@@ -1101,7 +1101,7 @@ int main(int argc, char** argv){
       conversionStatus = JsonStringToMessage(buffer.str(), message);
     }
     if (!conversionStatus.ok()) {
-      std::cout << conversionStatus << std::endl;
+      std::cerr << conversionStatus << std::endl;
       exit(1);
     }
     message->SerializeToOstream(&std::cout);
@@ -1126,7 +1126,7 @@ int main(int argc, char** argv){
       conversionStatus = JsonStringToMessage(buffer.str(), message);
     }
     if (!conversionStatus.ok()) {
-      std::cout << conversionStatus << std::endl;
+      std::cerr << conversionStatus << std::endl;
       exit(1);
     }
 
@@ -1320,7 +1320,7 @@ int main(int argc, char** argv){
               
               uint32_t code;
               std::string paramName;
-              if (getMessageFieldValue<decltype(code)>(*m,"code",code) && getMessageStringValue(*m,"key",paramName)) { //getMessageParamName(*m,"params", paramName)) {
+              if (getMessageFieldValue<decltype(code)>(*m,"code",code) && getMessageStringValue(*m,"key",paramName)) {
                 // Generate the enum body
                 const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(paramName) + " = " + std::to_string(code) + ",";
                 std::cout << enumName << std::endl;

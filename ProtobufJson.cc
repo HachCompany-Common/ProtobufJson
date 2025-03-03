@@ -620,7 +620,7 @@ bool getMessageParamEnumList(std::shared_ptr<Message> message, const std::string
             T typeValue;
             std::unordered_map <std::string, T> keyValue;
             if (getMessageEnumList<T>(*m, kEnumListName, typeValue, keyValue)) {
-              const std::string enumName = name +  "_" + std::to_string(typeValue);
+              const std::string enumName = name +  "_" + std::to_string(j);
               std::unordered_map <std::string, T> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
@@ -652,7 +652,7 @@ bool getMessageParamStringEnumList(std::shared_ptr<Message> message, const std::
             std::string typeValue;
             std::unordered_map <std::string, std::string> keyValue;
             if (getMessageStringEnumList(*m, kEnumListName, typeValue, keyValue)) {
-              const std::string enumName = name +  "_" + typeValue;
+              const std::string enumName = name +  "_" + std::to_string(j);
               std::unordered_map <std::string, std::string> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;

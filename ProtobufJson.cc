@@ -1286,7 +1286,8 @@ int main(int argc, char** argv){
                 && getMessageFieldValue<uint32_t>(*m, "type", type)
                 && getMessageFieldValue<uint32_t>(*m, "id", id)) {
                 // Generate the enum body
-                const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(name) + "_" + std::to_string(type) + " = " + std::to_string(j) + ",";
+                const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(name) + "_" + std::to_string(type) 
+                + "_" + std::to_string(id) + " = " + std::to_string(j) + ",";
                 std::cout << enumName << std::endl;
                 
                 // Generate the map body

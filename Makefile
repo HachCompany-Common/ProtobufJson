@@ -13,7 +13,7 @@ all: ProtoToJson JsonToProto
 JsonToProto: ProtoToJson
 	ln -f "$<" "$@"
 
-ProtoToJson: ProtobufJson.cc  lib/.compile
+ProtoToJson: ProtobufJson.cc
 	g++ -std=c++17 -g -o "$@" ProtobufJson.cc $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)
 
 lib/.compile:

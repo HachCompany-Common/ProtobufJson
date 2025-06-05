@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <queue>
+#include <optional>
 #include <type_traits>
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/descriptor.h>
@@ -97,7 +98,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 1.2\n"
+       "Version: 1.3\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -319,6 +320,8 @@ void importFileDescriptor(const FileDescriptor* fd,
   }
 }
 
+using BYTE_TYPE = std::vector<uint8_t>;
+
 // Define const strings
 static const char * kSelectionsName = "selections";
 static const char * kSelectionsValueName = "value";
@@ -356,45 +359,73 @@ std::string convertNameString(const std::string name)
     return str_2;
 }
 template <typename T>
-bool getDataTypeName (std::string &value_type_name) {
-    if(std::is_same_v<T, int64_t>)
-      value_type_name = "int64_t";
-    else if(std::is_same_v<T, uint64_t>) 
-      value_type_name = "uint64_t";
-    else if(std::is_same_v<T, int32_t>) 
-      value_type_name = "int32_t";
-    else if(std::is_same_v<T, uint32_t>) 
-      value_type_name = "uint32_t";
-    else if(std::is_same_v<T, float>) 
-      value_type_name = "float"; 
-    else if(std::is_same_v<T, double>) 
-      value_type_name = "double"; 
-    else if(std::is_same_v<T, std::string>) 
-      value_type_name = "std::string";
+bool getDataTypeName (std::string &data_type_name) {
+
+    if constexpr(std::is_same_v<T, double>) {
+      data_type_name = "double";
+    }
+    else if constexpr(std::is_same_v<T, float>) {
+      data_type_name = "float"; 
+    }
+    else if constexpr(std::is_same_v<T, int64_t>) {
+      data_type_name = "int64_t";
+    }
+    else if constexpr(std::is_same_v<T, int32_t>) {
+      data_type_name = "int32_t";
+    }
+    else if constexpr(std::is_same_v<T, uint64_t>) {
+      data_type_name = "uint64_t";
+    }
+    else if constexpr(std::is_same_v<T, uint32_t>) {
+      data_type_name = "uint32_t";
+    }
+    else if constexpr(std::is_same_v<T, std::string>) {
+      data_type_name = "std::string";
+    }
+    else if constexpr(std::is_same_v<T, bool>) {
+      data_type_name = "bool";
+    }
+    else if constexpr(std::is_same_v<T, BYTE_TYPE>) {
+      data_type_name = "std::vector<uint8_t>";
+    }  
     else { // Not supported enum type
       return false;
-    }
+    }  
     return true;
 }
 template <typename T>
 bool getValueTypeName (std::string &value_type_name) {
-    if(std::is_same_v<T, int64_t>)
-      value_type_name = "int64Value";
-    else if(std::is_same_v<T, uint64_t>) 
-      value_type_name = "uint64Value";
-    else if(std::is_same_v<T, int32_t>) 
-      value_type_name = "int32Value";
-    else if(std::is_same_v<T, uint32_t>) 
-      value_type_name = "uint32Value";
-    else if(std::is_same_v<T, float>) 
+
+    if constexpr(std::is_same_v<T, double>) {
+      value_type_name = "doubleValue";
+    }
+    else if constexpr(std::is_same_v<T, float>) {
       value_type_name = "floatValue"; 
-    else if(std::is_same_v<T, double>) 
-      value_type_name = "doubleValue"; 
-    else if(std::is_same_v<T, std::string>)
+    }
+    else if constexpr(std::is_same_v<T, int64_t>) {
+      value_type_name = "int64Value";
+    }
+    else if constexpr(std::is_same_v<T, int32_t>) {
+      value_type_name = "int32value";
+    }
+    else if constexpr(std::is_same_v<T, uint64_t>) {
+      value_type_name = "uint64Value";
+    }
+    else if constexpr(std::is_same_v<T, uint32_t>) {
+      value_type_name = "uint32Value";
+    }
+    else if constexpr(std::is_same_v<T, std::string>) {
       value_type_name = "stringValue";
+    }
+    else if constexpr(std::is_same_v<T, bool>) {
+      value_type_name = "boolValue";
+    }
+    else if constexpr(std::is_same_v<T, BYTE_TYPE>) {
+      value_type_name = "byteValue";
+    }  
     else { // Not supported enum type
       return false;
-    }
+    } 
     return true;
 }
 
@@ -475,14 +506,19 @@ bool getMessageFieldValue(std::shared_ptr<Message> m, const std::string &field_n
           rtn = true;
           break;
 
-        }
-        /*
-        else if (field->type() == FieldDescriptor::TYPE_STRING) {
+        }   
+        /*    
+        else if ((std::is_same_v<T, BYTE_TYPE>) && field->type() == FieldDescriptor::TYPE_BYTES) {
+          rtn = true;
+          break;
+        }   
+         
+        else if ((std::is_same_v<T, std::string>) && field->type() == FieldDescriptor::TYPE_STRING) {
           value = refl->GetString(*m, field);
           rtn = true;
           break;
-        }
-        */
+        }  
+        */   
       }
   }
   return rtn;
@@ -519,7 +555,37 @@ bool getMessageStringValue(std::shared_ptr<Message> m, const std::string &field_
       }
       return false;
 } 
+bool getMessageByteValue(std::shared_ptr<Message> m, const std::string &field_name, BYTE_TYPE &value, bool oneof_field = false)
+ {
+      const Descriptor *desc       = m->GetDescriptor();
+      const Reflection *refl       = m->GetReflection();   
+      int fieldCount= desc->field_count();
+      //fprintf(stderr, "The fullname of the message is %s \n", desc->full_name().c_str());
+      for(int i=0;i<fieldCount;i++)
+      {
+        const FieldDescriptor *field = desc->field(i);
+        if (oneof_field) {
+          // Get the oneof field descriptor
+          const OneofDescriptor * oneof_descriptor = field->containing_oneof();
+          if(oneof_descriptor != nullptr && refl->HasOneof(*m, oneof_descriptor))
+          {
+            field = refl->GetOneofFieldDescriptor(*m,oneof_descriptor);
+          }
+          else {
+            continue;
+          }
+        }
 
+        if(field->type() == FieldDescriptor::TYPE_BYTES  && !field->is_repeated() && (field_name.empty() || field->name() == field_name))
+        {
+            auto data  = refl->GetString(*m, field);
+            value = {data.begin(), data.end()};
+            return true;
+        }
+
+      }
+      return false;
+}
 // Read the paramater string value
 bool getMessageParamStringValue(std::shared_ptr<Message> m, const std::string &field_name, std::string &value)
 {
@@ -592,6 +658,26 @@ bool getMessageOneofStringValue(std::shared_ptr<Message> message, const std::str
       return false;
 }
 
+bool getMessageOneofByteValue(std::shared_ptr<Message> message, const std::string &field_name, const std::string &value_name,BYTE_TYPE &value)
+{
+      const Descriptor *desc       = message->GetDescriptor();
+      const Reflection *refl       = message->GetReflection();   
+      int fieldCount= desc->field_count();
+      
+      for(int i=0;i<fieldCount;i++)
+      {
+        const FieldDescriptor *field = desc->field(i);
+        if(field->type() == FieldDescriptor::TYPE_MESSAGE  && field->name() == field_name && !field->is_repeated() )
+        {
+          const Message &mfield = refl->GetMessage(*message, field);
+          std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
+          if (getMessageByteValue(*m,value_name,value,true)) {
+              return true;
+          }
+        }
+      }
+      return false;
+}
 // Read the number type selection list
 template <typename T>
 bool getMessageSelectionItemList(std::shared_ptr<Message> message, std::unordered_map<std::string, T> &key_value) {
@@ -614,16 +700,16 @@ bool getMessageSelectionItemList(std::shared_ptr<Message> message, std::unordere
             std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
 
             // Get the key name
-            if (std::string key; getMessageStringValue(*m, kSelectionsListItemLabelName, key)) {           
+            if (std::string key; getMessageStringValue(*m, kSelectionsListItemLabelName, key)) {         
               // Get the T value
               if (T value; getMessageOneofValue<T>(*m,"value",value)) {
                 key_value[key] = value;
-                rtn = true;
+                rtn = true;  
+              }
             }
           }
         }
-      }
-  }
+    }
   return rtn;
 }
 template <typename T>
@@ -650,13 +736,20 @@ bool getMessageSelectionList(std::shared_ptr<Message> message, const std::string
 }
 
 template <typename T>
-bool getMessageEnumList(std::shared_ptr<Message> message, const std::string &enum_list_name, T &type_value, std::unordered_map<std::string, T> &key_value) {
+bool getMessageEnumList(std::shared_ptr<Message> message, const std::string &enum_list_name, T &type_value, std::unordered_map<std::string, T> &key_value, bool generate_value_type = false) {
   bool rtn = false;
   const Descriptor *desc = message->GetDescriptor();
   const Reflection *refl = message->GetReflection();
 
   // Get the type value first
-  if (getMessageOneofValue<T>(message,"value",type_value)) {
+  if (getMessageOneofValue<T>(message,"value",type_value) ) {
+    
+    if (std::string ref_key; generate_value_type && getMessageOneofStringValue(message,enum_list_name,"refKey",ref_key)) {
+      key_value["value"] = type_value;
+      key_value[ref_key] = type_value;
+      rtn = true;
+    }
+    else {
 
     int fieldCount= desc->field_count();
 
@@ -670,9 +763,15 @@ bool getMessageEnumList(std::shared_ptr<Message> message, const std::string &enu
           const Message &mfield = refl->GetMessage(*message, field);
           std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
 
-          return getMessageSelectionList<T>(*m, kSelectionsListName,key_value);
+          rtn = getMessageSelectionList<T>(*m, kSelectionsListName,key_value);
+          break;
 
         }
+    }
+    if (generate_value_type && !rtn && key_value.empty()) {
+      key_value["value"] = type_value;
+      rtn = true;
+    }
     }
   }
   return rtn;
@@ -732,14 +831,28 @@ bool getMessageStringSelectionList(std::shared_ptr<Message> message, const std::
   }
   return rtn;
 }
-bool getMessageStringEnumList(std::shared_ptr<Message> message, const std::string &enum_list_name, std::string &type_value, std::unordered_map<std::string, std::string> &key_value) {
+bool getMessageByteValueList(std::shared_ptr<Message> message, const std::string &key_name, std::map<std::string, BYTE_TYPE> &key_value) { 
+  // Get the bytes value
+  if (BYTE_TYPE type_value;getMessageOneofByteValue(message,"value","byteValue",type_value)) {
+      key_value[key_name] = type_value;
+      return true;
+  }
+  return false;
+
+}
+bool getMessageStringEnumList(std::shared_ptr<Message> message, const std::string &enum_list_name, std::string &type_value, std::unordered_map<std::string, std::string> &key_value, bool generate_value_type = false) {
   bool rtn = false;
   const Descriptor *desc = message->GetDescriptor();
   const Reflection *refl = message->GetReflection();
 
   // Get the string value first
   if (getMessageOneofStringValue(message,"value","stringValue",type_value)) {
-
+    if (std::string ref_key; generate_value_type && getMessageOneofStringValue(message,enum_list_name,"refKey",ref_key)) {
+      key_value["value"] = type_value;
+      key_value[ref_key] = type_value;
+      rtn = true;
+    }
+    else {
     int fieldCount= desc->field_count();
 
     for(int i=0;i<fieldCount;i++)
@@ -750,14 +863,20 @@ bool getMessageStringEnumList(std::shared_ptr<Message> message, const std::strin
         const Message &mfield = refl->GetMessage(*message, field);
         std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
         rtn = getMessageStringSelectionList(*m, kSelectionsListName,key_value);
+        break;
       }
+    }
+    if (generate_value_type && !rtn && key_value.empty()) {
+      key_value["value"] = type_value;
+      rtn = true;
+    }
     }
   }
   return rtn;
 }
 // Return the parameter number enum list
 template <typename T>
-bool getMessageParamEnumList(std::shared_ptr<Message> message, const std::string &param_name, const std::string &name,std::map<std::string, std::unordered_map<std::string, T>> &enum_list)
+bool getMessageParamEnumList(std::shared_ptr<Message> message, const std::string &param_name, const std::string &name,std::map<std::string, std::unordered_map<std::string, T>> &enum_list, std::map<std::string, std::string>& key_name_list)
 {
       const Descriptor *desc       = message->GetDescriptor();
       const Reflection *refl       = message->GetReflection();   
@@ -775,21 +894,51 @@ bool getMessageParamEnumList(std::shared_ptr<Message> message, const std::string
             
             T typeValue;
             std::unordered_map <std::string, T> keyValue;
-            if (getMessageEnumList<T>(*m, kSelectionsName, typeValue, keyValue)) {
+            if (getMessageEnumList<T>(*m, kSelectionsName, typeValue, keyValue, true)) {
               const std::string enumName = name +  "_" + std::to_string(j);
               std::unordered_map <std::string, T> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
-              }
-              enum_list[replaceSpeicalWithUnscoreChar(enumName)] = reversedKeyValue;
+              }              
+              key_name_list[enumName] = key_name_list[name] + ", uint16_t ix = " + std::to_string(j);
+              enum_list[enumName] = reversedKeyValue;             
+
             }
           }
         }
       }
-      return false;
+      return true;
+}
+bool getMessageParamByteValueList(std::shared_ptr<Message> message, const std::string &param_name, const std::string &name,std::map<std::string, BYTE_TYPE> &value_list, std::map<std::string, std::string> & key_name_list)
+{
+      const Descriptor *desc       = message->GetDescriptor();
+      const Reflection *refl       = message->GetReflection();   
+      int fieldCount= desc->field_count();
+      
+      for(int i=0;i<fieldCount;i++)
+      {
+        const FieldDescriptor *field = desc->field(i);
+        if(field->type() == FieldDescriptor::TYPE_MESSAGE  && field->name() == param_name && field->is_repeated() )
+        {
+          //fprintf(stderr, "The count of the param list message: %i and the name: %s\n",refl->FieldSize(*message, field), field->name().c_str());
+          for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
+            const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
+            std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
+            
+            std::map <std::string,BYTE_TYPE> keyValue;
+            if (getMessageByteValueList(*m, "value", keyValue)) {
+              const std::string enumName = name +  "_" + std::to_string(j);
+              key_name_list[enumName] = key_name_list[name] + ", uint16_t ix = " + std::to_string(j);
+              value_list[enumName] = keyValue["value"];
+          
+            }
+          }
+        }
+      }
+      return true;
 }
 // Return the string parameter enum list 
-bool getMessageParamStringEnumList(std::shared_ptr<Message> message, const std::string &param_name, const std::string &name,std::map<std::string, std::unordered_map<std::string, std::string>> &enum_list)
+bool getMessageParamStringEnumList(std::shared_ptr<Message> message, const std::string &param_name, const std::string &name,std::map<std::string, std::unordered_map<std::string, std::string>> &enum_list, std::map<std::string, std::string> & key_name_list)
 {
       const Descriptor *desc       = message->GetDescriptor();
       const Reflection *refl       = message->GetReflection();   
@@ -807,18 +956,19 @@ bool getMessageParamStringEnumList(std::shared_ptr<Message> message, const std::
             
             std::string typeValue;
             std::unordered_map <std::string, std::string> keyValue;
-            if (getMessageStringEnumList(*m, kSelectionsName, typeValue, keyValue)) {
+            if (getMessageStringEnumList(*m, kSelectionsName, typeValue, keyValue, true)) {
               const std::string enumName = name +  "_" + std::to_string(j);
               std::unordered_map <std::string, std::string> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
               }
-              enum_list[replaceSpeicalWithUnscoreChar(enumName)] = reversedKeyValue;
+              key_name_list[enumName] = key_name_list[name] + ", uint16_t ix = " + std::to_string(j);
+              enum_list[enumName] = reversedKeyValue;
             }
           }
         }
       }
-      return false;
+      return true;
 }
 // Return the number value enum list
 template <typename T>
@@ -826,12 +976,12 @@ bool getMessageValueEnumList(std::shared_ptr<Message> message, const std::string
 {
     T typeValue;
     std::unordered_map <std::string, T> keyValue;
-    if (getMessageEnumList<T>(message, kSelectionsName, typeValue, keyValue)) {
+    if (getMessageEnumList<T>(message, kSelectionsName, typeValue, keyValue, true)) {
         std::unordered_map <std::string, T> reversedKeyValue;
         for (const auto &[key, value] : keyValue) {
             reversedKeyValue[key] = value;
         }
-        enum_list[replaceSpeicalWithUnscoreChar(name)] = reversedKeyValue;
+        enum_list[name] = reversedKeyValue;
         return true;
     }
     return false;
@@ -842,12 +992,12 @@ bool getMessageValueStringEnumList(std::shared_ptr<Message> message, const std::
 
     std::string typeValue;
     std::unordered_map <std::string, std::string> keyValue;
-    if (getMessageStringEnumList(message, kSelectionsName, typeValue, keyValue)) {
+    if (getMessageStringEnumList(message, kSelectionsName, typeValue, keyValue,true)) {
       std::unordered_map <std::string, std::string> reversedKeyValue;
       for (const auto &[key, value] : keyValue) {
         reversedKeyValue[key] = value;
       }
-      enum_list[replaceSpeicalWithUnscoreChar(name)] = reversedKeyValue;
+      enum_list[name] = reversedKeyValue;
       return true;
         
     }
@@ -907,11 +1057,31 @@ bool getMessageParamNameList(std::shared_ptr<Message> message, const std::string
 } 
 // Generate the number enum list
 template <typename T>
-void generateEnumList(const std::map<std::string, std::unordered_map<std::string, T>> &enum_list) {
+void generateEnumList(const std::map<std::string, std::unordered_map<std::string, T>> &enum_list, const std::map<std::string, std::string> &enum_key_name) {
     // Generate the enum header
   if (std::string value_type_name; getDataTypeName<T>(value_type_name)) {
-    for ( auto const& [enum_name, key_value]:enum_list) {
 
+    for ( auto const& [enum_name, key_value]:enum_list) {
+      if (key_value.empty()) {
+        continue;
+      } 
+      auto generateValueAccessor = [enum_name,enum_key_name](const std::string &type_name) {
+        std::cout << "// " << enum_name << ": get/set accessor" << std::endl;
+        const std::string get_func_name = "get" + enum_name;
+        std::cout <<  type_name << " " << get_func_name << "(" << enum_key_name.at(enum_name) << ");" << std::endl;
+        const std::string set_func_name = "set" + enum_name;
+        const std::string set_param_name = type_name + " value," + enum_key_name.at(enum_name);
+        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;  
+        std::cout << std::endl;
+      };
+
+      // Only generate get/set accessors
+      if (key_value.find("value") != key_value.end()) {
+        generateValueAccessor(value_type_name);
+        continue;
+      }
+
+      // Generate selections + get/set accessors
       if (value_type_name == "float" || value_type_name == "double") {
         std::stringstream mapStream;
 
@@ -938,29 +1108,69 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         mapStream << "};";
         // Output the whole map
         std::cout << mapStream.str() << std::endl << std::endl;
+
+        generateValueAccessor(value_type_name);
+
       }
       else {
         // Generate the enum header
         std::cout << "// " << enum_name << ": selection list" << std::endl;
-        const std::string enum_header = "enum class Enum" + enum_name + ": " + value_type_name + " {";
+        const std::string enumClassName = "Enum" + enum_name; 
+        const std::string enum_header = "enum class " + enumClassName + ": " + value_type_name + " {";
         std::cout << enum_header << std::endl;
 
         for (auto const& [key, value]: key_value) {
           // Generate the enum body
-          const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" + key) + " = " + std::to_string(value) + ",";
-          std::cout << enumName << std::endl;
+          const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" + key) + " = ";
+          if (value_type_name == "bool") {           
+            std::cout << enumName << std::boolalpha << value << "," << std::endl;
+          }
+          else {
+            std::cout << enumName << std::to_string(value) + "," << std::endl;
+          }
         }
         // Generate the end of enum list
-        std::cout << "};" << std::endl << std::endl;       
+        std::cout << "};" << std::endl << std::endl;    
+
+        generateValueAccessor(enumClassName);   
       }
     }
   }
 }
-
 // Generate the string type enum list
-void generateStringEnumList(const std::map<std::string, std::unordered_map<std::string, std::string>> &enum_list) {
+void generateByteValueList(const std::map<std::string, BYTE_TYPE> value_list, const std::map<std::string,std::string> &enum_key_name) {
+
+  for ( auto const& [key_name, key_value]:value_list) {
+        std::cout << "// " << key_name << ": get/set accessor" << std::endl;
+        const std::string get_func_name = "get" + key_name;
+        const std::string value_type_name = "const std::vector<uint8_t> & ";
+        std::cout << value_type_name << get_func_name << "(" << enum_key_name.at(key_name) << ");" << std::endl;
+         const std::string set_func_name = "set" + key_name;
+        const std::string set_param_name = value_type_name + "value," + enum_key_name.at(key_name);
+        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;  
+        std::cout << std::endl;
+  }
+}
+// Generate the string type enum list
+void generateStringEnumList(const std::map<std::string, std::unordered_map<std::string, std::string>> &enum_list, const std::map<std::string,std::string> &enum_key_name) {
 
   for ( auto const& [enum_name, key_value]:enum_list) {
+    if (key_value.empty()) {
+      continue;
+    }
+    auto generateStringAccessor = [enum_name,enum_key_name]() {
+        std::cout << "// " << enum_name << ": get/set accessor" << std::endl;
+        const std::string get_func_name = "get" + enum_name;
+        std::cout << "const std::string & " << get_func_name << "(" << enum_key_name.at(enum_name) << ");" << std::endl;
+         const std::string set_func_name = "set" + enum_name;
+        const std::string set_param_name = "const std::string & value," + enum_key_name.at(enum_name);
+        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;  
+        std::cout << std::endl;
+    };
+    if (key_value.find("value") != key_value.end()) {
+        generateStringAccessor();
+        continue;
+    }
 
     std::stringstream mapStream;
 
@@ -971,23 +1181,25 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
     std::cout << "// " << enum_name << ": selection list" << std::endl;
     const std::string uint32_header = "enum class Enum" + enum_name + ": uint32_t {";
     std::cout << uint32_header << std::endl;
-      uint i= 0;
-      for (auto const& [key, value]: key_value) {
+    uint i= 0;
+    for (auto const& [key, value]: key_value) {
         // Generate the enum body
         const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" +  key) + " = " + std::to_string(i) + ",";
         std::cout << enumName << std::endl;
         // create the map body
         mapStream << "{" << i << ",\"" << value.c_str() << "\"}," << std::endl;
         i++;
-      }
-      // Generate the end of enum list
-      std::cout << "};" << std::endl << std::endl;
-
-      // Create the end of map
-      mapStream << "};";
-      // Output the whole map
-      std::cout << mapStream.str() << std::endl << std::endl;
     }
+    // Generate the end of enum list
+    std::cout << "};" << std::endl << std::endl;
+
+    // Create the end of map
+    mapStream << "};";
+    // Output the whole map
+    std::cout << mapStream.str() << std::endl << std::endl;
+
+    generateStringAccessor();
+  }
 }
 
 
@@ -1343,12 +1555,14 @@ int main(int argc, char** argv){
             structNameStr =  protoMsgName;
           }
           // Generate the enum header
-          const std::string enumHeader = "enum class Enum" + structNameStr + ": uint32_t {";
+          const std::string enumKeyTypeName = "Enum" + structNameStr;
+          const std::string enumHeader = "enum class " + enumKeyTypeName + ": uint32_t {";
           std::cout << enumHeader << std::endl;
 
           // Uppercase the message name
           auto msgNameStr = convertNameString(structNameStr);
 
+          std::map<std::string, std::string> keyEnumNameList;
           std::map<std::string, std::unordered_map<std::string, uint32_t>> uint32EnumList;
           std::map<std::string, std::unordered_map<std::string, int32_t>> int32EnumList;
           std::map<std::string, std::unordered_map<std::string, uint64_t>> uint64EnumList;
@@ -1356,7 +1570,9 @@ int main(int argc, char** argv){
           std::map<std::string, std::unordered_map<std::string, std::string>> stringEnumList;
           std::map<std::string, std::unordered_map<std::string, float>> floatEnumList;
           std::map<std::string, std::unordered_map<std::string, double>> doubleEnumList;
-
+          std::map<std::string, std::unordered_map<std::string, bool>> boolEnumList;
+          std::map<std::string, BYTE_TYPE> byteValueList;
+          
           if (protoMsgName == "SettingsProfile" || protoMsgName == "PropertiesProfile") {
             // Store the map data
             std::stringstream mapStream;
@@ -1373,11 +1589,15 @@ int main(int argc, char** argv){
 
               std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
 
-              std::string value;
-              if (getMessageStringValue(*m,"key",value)) {
+              std::string key;
+              if (getMessageStringValue(*m,"key",key)) {
                 // Generate the enum body
-                const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(value) + " = " + std::to_string(j) + ",";
+                const auto keyEnumName = "ENUM_"  + msgNameStr + "_" + convertNameString(key);
+                const auto  enumName = keyEnumName + " = " + std::to_string(j) + ",";
                 std::cout << enumName << std::endl;
+                
+                const auto value = replaceSpeicalWithUnscoreChar(key);
+                keyEnumNameList[value] = enumKeyTypeName + " key = " + enumKeyTypeName + "::" + keyEnumName;
 
                 // Generate the map body
                 mapStream << "{" << j << ",\"" << value << "\"}," << std::endl;
@@ -1392,7 +1612,10 @@ int main(int argc, char** argv){
                 getMessageValueEnumList<int64_t>(*m,value,int64EnumList);
                 getMessageValueEnumList<float>(*m,value,floatEnumList);
                 getMessageValueEnumList<double>(*m,value,doubleEnumList);
+                getMessageValueEnumList<bool>(*m,value,boolEnumList);
                 getMessageValueStringEnumList(*m,value,stringEnumList);
+                getMessageByteValueList(*m,value,byteValueList);
+
               }
             } 
             // Generate the end of enum list
@@ -1406,13 +1629,15 @@ int main(int argc, char** argv){
             std::cout << dynamicValueStream.str() << std::endl;
 
             // Generate the enum list
-            generateEnumList<uint32_t>(uint32EnumList);
-            generateEnumList<int32_t>(int32EnumList);
-            generateEnumList<uint64_t>(uint64EnumList);
-            generateEnumList<int64_t>(int64EnumList);
-            generateEnumList<float>(floatEnumList);
-            generateEnumList<double>(doubleEnumList);
-            generateStringEnumList(stringEnumList);
+            generateEnumList<uint32_t>(uint32EnumList,keyEnumNameList);
+            generateEnumList<int32_t>(int32EnumList,keyEnumNameList);
+            generateEnumList<uint64_t>(uint64EnumList,keyEnumNameList);
+            generateEnumList<int64_t>(int64EnumList,keyEnumNameList);
+            generateEnumList<float>(floatEnumList,keyEnumNameList);
+            generateEnumList<double>(doubleEnumList,keyEnumNameList);
+            generateEnumList<bool>(boolEnumList,keyEnumNameList);            
+            generateStringEnumList(stringEnumList,keyEnumNameList);
+            generateByteValueList(byteValueList,keyEnumNameList);
           }
           else if (std::string(options.messageName) == "ResultsProfile") {
             // Store the map data
@@ -1528,32 +1753,40 @@ int main(int argc, char** argv){
               std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
               
               uint32_t code;
-              std::string paramName;
-              if (getMessageFieldValue<decltype(code)>(*m,"code",code) && getMessageStringValue(*m,"key",paramName)) {
+              std::string key;
+              if (getMessageFieldValue<decltype(code)>(*m,"code",code) && getMessageStringValue(*m,"key",key)) {
                 // Generate the enum body
-                const std::string enumName = "ENUM_"  + msgNameStr + "_" + convertNameString(paramName) + " = " + std::to_string(code) + ",";
+                const auto keyEnumName = "ENUM_"  + msgNameStr + "_" + convertNameString(key);
+                const auto enumName = keyEnumName + " = " + std::to_string(code) + ",";
                 std::cout << enumName << std::endl;
 
-                getMessageParamEnumList<uint32_t>(*m, "params", paramName,uint32EnumList);
-                getMessageParamEnumList<int32_t>(*m, "params", paramName,int32EnumList);
-                getMessageParamEnumList<uint64_t>(*m, "params", paramName,uint64EnumList);
-                getMessageParamEnumList<int64_t>(*m, "params", paramName,int64EnumList);
-                getMessageParamEnumList<float>(*m, "params", paramName,floatEnumList);
-                getMessageParamEnumList<double>(*m, "params", paramName,doubleEnumList);
-                getMessageParamStringEnumList(*m, "params", paramName,stringEnumList);
+                const auto paramName = replaceSpeicalWithUnscoreChar(key);
+                keyEnumNameList[paramName] = enumKeyTypeName + " code = " + enumKeyTypeName + "::" + keyEnumName;
+
+                getMessageParamEnumList<uint32_t>(*m, "params", paramName,uint32EnumList,keyEnumNameList);
+                getMessageParamEnumList<int32_t>(*m, "params", paramName,int32EnumList,keyEnumNameList);
+                getMessageParamEnumList<uint64_t>(*m, "params", paramName,uint64EnumList,keyEnumNameList);
+                getMessageParamEnumList<int64_t>(*m, "params", paramName,int64EnumList,keyEnumNameList);
+                getMessageParamEnumList<float>(*m, "params", paramName,floatEnumList,keyEnumNameList);
+                getMessageParamEnumList<double>(*m, "params", paramName,doubleEnumList,keyEnumNameList);
+                getMessageParamEnumList<bool>(*m, "params", paramName,boolEnumList,keyEnumNameList);                
+                getMessageParamStringEnumList(*m, "params", paramName,stringEnumList,keyEnumNameList);
+                getMessageParamByteValueList(*m, "params", paramName,byteValueList,keyEnumNameList);
               }
             }
             // Generate the end of enum code list
             std::cout << "};" << std::endl << std::endl;
 
             // Generate the enum list
-            generateEnumList<uint32_t>(uint32EnumList);
-            generateEnumList<int32_t>(int32EnumList);
-            generateEnumList<uint64_t>(uint64EnumList);
-            generateEnumList<int64_t>(int64EnumList);
-            generateEnumList<float>(floatEnumList);
-            generateEnumList<double>(doubleEnumList);
-            generateStringEnumList(stringEnumList);
+            generateEnumList<uint32_t>(uint32EnumList,keyEnumNameList);
+            generateEnumList<int32_t>(int32EnumList,keyEnumNameList);
+            generateEnumList<uint64_t>(uint64EnumList,keyEnumNameList);
+            generateEnumList<int64_t>(int64EnumList,keyEnumNameList);
+            generateEnumList<float>(floatEnumList,keyEnumNameList);
+            generateEnumList<double>(doubleEnumList,keyEnumNameList);
+            generateEnumList<bool>(boolEnumList,keyEnumNameList);            
+            generateStringEnumList(stringEnumList,keyEnumNameList);
+            generateByteValueList(byteValueList,keyEnumNameList);
           }
           // End of namespace
           std::cout << "} // namespace cdiProfile" << std::endl;

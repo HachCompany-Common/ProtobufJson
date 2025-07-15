@@ -98,7 +98,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 1.3\n"
+       "Version: 1.4\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"

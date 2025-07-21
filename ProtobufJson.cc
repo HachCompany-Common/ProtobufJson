@@ -1202,11 +1202,11 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
   }
 }
 
+// Generate the attribute field value
+void createAttributeValueStream(std::shared_ptr<Message> message, const std::string &key, int index, std::stringstream &stream) {
+  const int numOfDataFields = 3;
+  const std::string fieldName[numOfDataFields] = {"unitsId","min","max"};
 
-// Generate the dynamic field value
-void generateDynamicValueStream(std::shared_ptr<Message> message, const std::string &key, std::stringstream &stream) {
-  const std::string fieldName[] = {"unitsId","min","max"};
-  const std::string valueName[] = {"k" + key + "UnitsId = ","k" + key + "Min = ","k" + key + "Max = "};
   uint32_t uint32Value;
   int32_t int32Value;
   uint64_t uint64Value;
@@ -1214,34 +1214,64 @@ void generateDynamicValueStream(std::shared_ptr<Message> message, const std::str
   std::string stringValue;
   float floatValue;
   double doubleValue;
-
+  bool boolValue;
+  std::string valueString[numOfDataFields];
+  
   stream << std::endl << "// " << key.c_str() << ": unitsId, min and max value" << std::endl;
-  for (int i = 0; i < 3; i++) {
+  
+  for (int i = 0; i < numOfDataFields; i++) {
+
     if (getMessageOneofValue<uint32_t>(message,fieldName[i],uint32Value)) {
-      stream << "static constexpr uint32_t " << valueName[i].c_str() << uint32Value << ";" << std::endl;
+      valueString[i] = "(uint32_t)" + std::to_string(uint32Value);
     }
     else if (getMessageOneofValue<int32_t>(message,fieldName[i],int32Value)) {
-      stream << "static constexpr int32_t " << valueName[i].c_str() << int32Value << ";" << std::endl;
+      valueString[i] = "(int32_t)" + std::to_string(int32Value);
     }
     else if (getMessageOneofValue<uint64_t>(message,fieldName[i],uint64Value)) {
-      stream << "static constexpr uint64_t " << valueName[i].c_str() << uint64Value << ";" << std::endl;
+      valueString[i] = "(uint64_t)" + std::to_string(uint64Value);
     }
     else if (getMessageOneofValue<int64_t>(message,fieldName[i],int64Value)) {
-      stream << "static constexpr int64_t " << valueName[i].c_str() << int64Value << ";" << std::endl;
+      valueString[i] = "(int64_t)" + std::to_string(int64Value);
     }
     else if (getMessageOneofValue<double>(message,fieldName[i],doubleValue)) {
-      stream << "static constexpr double " << valueName[i].c_str() << doubleValue << ";" << std::endl;
+      valueString[i] = "(double)" + std::to_string(doubleValue);
     }  
     else if (getMessageOneofValue<float>(message,fieldName[i],floatValue)) {
-      stream << "static constexpr float " << valueName[i].c_str() << floatValue << ";" << std::endl;
+      valueString[i] = "(float)" + std::to_string(floatValue);
     }  
+    else if (getMessageOneofValue<bool>(message,fieldName[i],boolValue)) {
+      valueString[i] = "(bool)" + std::to_string(boolValue?1:0);
+    }
     else if (getMessageOneofStringValue(message,fieldName[i],"stringValue",stringValue)){
-      stream << "static constexpr const char *" << valueName[i].c_str() << "\"" << stringValue.c_str() << "\"" << ";" << std::endl;
+      valueString[i] = "\"" + stringValue + "\"";
     }
     else if (getMessageOneofStringValue(message,fieldName[i],"refKey",stringValue)){
-      stream << "static constexpr const char *" << valueName[i].c_str() << "\"" << stringValue.c_str() << "\"" << ";" << std::endl;
+      valueString[i] = "\"" + stringValue + "\"";
+    }
+    else {
+      valueString[i].clear();
+    }
+
+  }
+  // Check if all values are empty
+  for (int i = 0; i < numOfDataFields; i++) {
+    if (!valueString[i].empty()) {
+      break;
+    }
+    if (i == numOfDataFields - 1) {
+      // If all values are empty, return
+      return;
     }
   }
+  // Generate the attribute field values
+  stream << "{" << index << ", {";
+  for (int i = 0; i < numOfDataFields; i++) {
+    if (valueString[i].empty()) {
+      valueString[i] = "\"\"";
+    }
+    stream << valueString[i].c_str() << (i < numOfDataFields - 1 ? "," : "");
+  }
+  stream << "}}," << std::endl;
 }
 
 /**
@@ -1258,8 +1288,10 @@ void genertaeFileHeader() {
 #include <string>
 #include <map>
 #include <vector>
+#include <variant> 
 
 namespace cdiProfile {)";
+
   std::cout << header << std::endl << std::endl;
 }
 /**
@@ -1576,7 +1608,7 @@ int main(int argc, char** argv){
           if (protoMsgName == "SettingsProfile" || protoMsgName == "PropertiesProfile") {
             // Store the map data
             std::stringstream mapStream;
-            std::stringstream dynamicValueStream;
+            std::stringstream attributeValueStream;
 
             // Generate the map header
             mapStream << "static const std::map<uint32_t,const char*> kMap"
@@ -1602,9 +1634,6 @@ int main(int argc, char** argv){
                 // Generate the map body
                 mapStream << "{" << j << ",\"" << value << "\"}," << std::endl;
 
-                // Generate the dynamic value stream such as min/max
-                generateDynamicValueStream(*m,value,dynamicValueStream);
-
                 // Scan the enum list with uint32_t and int32_t types
                 getMessageValueEnumList<uint32_t>(*m,value,uint32EnumList);
                 getMessageValueEnumList<int32_t>(*m,value,int32EnumList);
@@ -1616,6 +1645,9 @@ int main(int argc, char** argv){
                 getMessageValueStringEnumList(*m,value,stringEnumList);
                 getMessageByteValueList(*m,value,byteValueList);
 
+                // Generate the attribute value stream
+                createAttributeValueStream(*m,value,j,attributeValueStream);
+
               }
             } 
             // Generate the end of enum list
@@ -1625,9 +1657,26 @@ int main(int argc, char** argv){
             mapStream << "};";
             std::cout << mapStream.str() << std::endl << std::endl;
 
-            // Output dynamic values such as min/max
-            std::cout << dynamicValueStream.str() << std::endl;
+            // Output attribute values such as min/max/unitsId
+            std::cout << "// " << structNameStr << ": attribute definition for min/max/unitsId" << std::endl;
+           
+            // Generate the attribute definition
+            const std::string attributeTypeName = "AttributeType" + structNameStr;
+            std::cout <<"using " << attributeTypeName << " = std::variant<bool, uint32_t, int32_t, uint64_t, int64_t,float, double, const char*>;" << std::endl << std::endl;
+            const std::string attributeDataName = "StructAttributeData" + structNameStr;
 
+            std::cout << "struct " << attributeDataName << " {" << std::endl;
+            std::cout << "  " << attributeTypeName << " unitsId;" << std::endl;
+            std::cout << "  " << attributeTypeName << " min;" << std::endl;
+            std::cout << "  " << attributeTypeName << " max;" << std::endl;
+            std::cout << "};" << std::endl << std::endl;
+
+            std::cout << "static const std::map<uint32_t, struct " << attributeDataName << "> kMapAttribute"
+            << structNameStr << " = {" << std::endl;
+            std::cout << attributeValueStream.str() << std::endl;
+            // Generate the end of attribute map
+            std::cout << "};" << std::endl << std::endl;
+            
             // Generate the enum list
             generateEnumList<uint32_t>(uint32EnumList,keyEnumNameList);
             generateEnumList<int32_t>(int32EnumList,keyEnumNameList);

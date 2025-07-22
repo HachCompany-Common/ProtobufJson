@@ -4,7 +4,6 @@ set -e
 
 # Install Protobuf 4.25.3
 pushd /tmp
-rm -rf protobuf
 git clone --progress --verbose --recurse-submodules --jobs=$(nproc) --branch=25.x https://github.com/protocolbuffers/protobuf.git
 pushd protobuf/
 git checkout 4a2aef570deb2bfb8927426558701e8bfc26f2a4 
@@ -14,6 +13,7 @@ make install
 ldconfig
 
 popd
+rm -rf protobuf
 popd
 
 # Build Protobufjson

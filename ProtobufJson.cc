@@ -1216,62 +1216,53 @@ void createAttributeValueStream(std::shared_ptr<Message> message, const std::str
   double doubleValue;
   bool boolValue;
   std::string valueString[numOfDataFields];
-  
-  stream << std::endl << "// " << key.c_str() << ": unitsId, min and max value" << std::endl;
-  
-  for (int i = 0; i < numOfDataFields; i++) {
+  uint32_t type;
 
-    if (getMessageOneofValue<uint32_t>(message,fieldName[i],uint32Value)) {
-      valueString[i] = "(uint32_t)" + std::to_string(uint32Value);
-    }
-    else if (getMessageOneofValue<int32_t>(message,fieldName[i],int32Value)) {
-      valueString[i] = "(int32_t)" + std::to_string(int32Value);
-    }
-    else if (getMessageOneofValue<uint64_t>(message,fieldName[i],uint64Value)) {
-      valueString[i] = "(uint64_t)" + std::to_string(uint64Value);
-    }
-    else if (getMessageOneofValue<int64_t>(message,fieldName[i],int64Value)) {
-      valueString[i] = "(int64_t)" + std::to_string(int64Value);
-    }
-    else if (getMessageOneofValue<double>(message,fieldName[i],doubleValue)) {
-      valueString[i] = "(double)" + std::to_string(doubleValue);
-    }  
-    else if (getMessageOneofValue<float>(message,fieldName[i],floatValue)) {
-      valueString[i] = "(float)" + std::to_string(floatValue);
-    }  
-    else if (getMessageOneofValue<bool>(message,fieldName[i],boolValue)) {
-      valueString[i] = "(bool)" + std::to_string(boolValue?1:0);
-    }
-    else if (getMessageOneofStringValue(message,fieldName[i],"stringValue",stringValue)){
-      valueString[i] = "\"" + stringValue + "\"";
-    }
-    else if (getMessageOneofStringValue(message,fieldName[i],"refKey",stringValue)){
-      valueString[i] = "\"" + stringValue + "\"";
-    }
-    else {
-      valueString[i].clear();
-    }
+  if (getMessageFieldValue<uint32_t>(message, "type", type)) {
+  
+    stream << std::endl << "// " << key.c_str() << ": type, unitsId, min and max value" << std::endl;
+  
+    for (int i = 0; i < numOfDataFields; i++) {
 
-  }
-  // Check if all values are empty
-  for (int i = 0; i < numOfDataFields; i++) {
-    if (!valueString[i].empty()) {
-      break;
+      if (getMessageOneofValue<uint32_t>(message,fieldName[i],uint32Value)) {
+        valueString[i] = "(uint32_t)" + std::to_string(uint32Value);
+      }
+      else if (getMessageOneofValue<int32_t>(message,fieldName[i],int32Value)) {
+        valueString[i] = "(int32_t)" + std::to_string(int32Value);
+      }
+      else if (getMessageOneofValue<uint64_t>(message,fieldName[i],uint64Value)) {
+        valueString[i] = "(uint64_t)" + std::to_string(uint64Value);
+      }
+      else if (getMessageOneofValue<int64_t>(message,fieldName[i],int64Value)) {
+        valueString[i] = "(int64_t)" + std::to_string(int64Value);
+      }
+      else if (getMessageOneofValue<double>(message,fieldName[i],doubleValue)) {
+        valueString[i] = "(double)" + std::to_string(doubleValue);
+      }  
+      else if (getMessageOneofValue<float>(message,fieldName[i],floatValue)) {
+        valueString[i] = "(float)" + std::to_string(floatValue);
+      }  
+      else if (getMessageOneofValue<bool>(message,fieldName[i],boolValue)) {
+        valueString[i] = "(bool)" + std::to_string(boolValue?1:0);
+      }
+      else if (getMessageOneofStringValue(message,fieldName[i],"stringValue",stringValue)){
+        valueString[i] = "\"" + stringValue + "\"";
+      }
+      else if (getMessageOneofStringValue(message,fieldName[i],"refKey",stringValue)){
+        valueString[i] = "\"" + stringValue + "\"";
+      }
+      else {
+        valueString[i] = "\"\"";
+      }
     }
-    if (i == numOfDataFields - 1) {
-      // If all values are empty, return
-      return;
+  
+    // Generate the attribute field values
+    stream << "{" << index << ", {" << type << ",";
+    for (int i = 0; i < numOfDataFields; i++) {
+      stream << valueString[i].c_str() << (i < numOfDataFields - 1 ? "," : "");
     }
+    stream << "}}," << std::endl;
   }
-  // Generate the attribute field values
-  stream << "{" << index << ", {";
-  for (int i = 0; i < numOfDataFields; i++) {
-    if (valueString[i].empty()) {
-      valueString[i] = "\"\"";
-    }
-    stream << valueString[i].c_str() << (i < numOfDataFields - 1 ? "," : "");
-  }
-  stream << "}}," << std::endl;
 }
 
 /**
@@ -1666,6 +1657,7 @@ int main(int argc, char** argv){
             const std::string attributeDataName = "StructAttributeData" + structNameStr;
 
             std::cout << "struct " << attributeDataName << " {" << std::endl;
+            std::cout << "  " << "uint32_t type;" << std::endl;
             std::cout << "  " << attributeTypeName << " unitsId;" << std::endl;
             std::cout << "  " << attributeTypeName << " min;" << std::endl;
             std::cout << "  " << attributeTypeName << " max;" << std::endl;

@@ -98,7 +98,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 2.0\n"
+       "Version: 2.01\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -328,6 +328,11 @@ static const char * kSelectionsValueName = "value";
 static const char * kSelectionsListName = "list";
 static const char * kSelectionsListItemsName = "items";
 static const char * kSelectionsListItemLabelName = "label";
+static const char * kParamName = "params";
+static const char * kReqParamName = "requestParams";
+static const char * kResParamName = "responseParams";
+static const char * kRefKeyName = "refKey";
+static const char * kParamKeyName = "name";
 
 // Return a pointer to a message
 std::shared_ptr<Message> * createMessageSharedPtr(const Message &message) {
@@ -338,8 +343,8 @@ std::shared_ptr<Message> * createMessageSharedPtr(const Message &message) {
     return msg;
 }
 // Replace some special characters to underscore letter
-std::string replaceSpeicalWithUnscoreChar(const std::string str) {
-  return std::regex_replace(str, std::regex("([\\.\\!\\/;@%\\s])"), "_");
+std::string replaceSpeicalWithUnderscoreChar(const std::string str) {
+  return std::regex_replace(str, std::regex("([\\.\\!\\/;@:%\\s])"), "_");
 }
 // Function to convert camel case string to snake case string.
 std::string camelToSnake(std::string camelString)  
@@ -353,7 +358,7 @@ std::string camelToSnake(std::string camelString)
 std::string convertNameString(const std::string name)  
 {  
     // Replace some special characters to underscore letter
-    const std::string str_1 = replaceSpeicalWithUnscoreChar(name);
+    const std::string str_1 = replaceSpeicalWithUnderscoreChar(name);
     std::string str_2 = camelToSnake(str_1);
     std::transform(str_2.begin(), str_2.end(), str_2.begin(), ::toupper);
     return str_2;
@@ -744,9 +749,9 @@ bool getMessageEnumList(std::shared_ptr<Message> message, const std::string &enu
   // Get the type value first
   if (getMessageOneofValue<T>(message,"value",type_value) ) {
     
-    if (std::string ref_key; generate_value_type && getMessageOneofStringValue(message,enum_list_name,"refKey",ref_key)) {
+    if (std::string ref_key; generate_value_type && getMessageOneofStringValue(message,enum_list_name,kRefKeyName,ref_key)) {
       key_value["value"] = type_value;
-      key_value[ref_key] = type_value;
+      key_value[replaceSpeicalWithUnderscoreChar(ref_key)] = type_value;
       rtn = true;
     }
     else {
@@ -847,9 +852,9 @@ bool getMessageStringEnumList(std::shared_ptr<Message> message, const std::strin
 
   // Get the string value first
   if (getMessageOneofStringValue(message,"value","stringValue",type_value)) {
-    if (std::string ref_key; generate_value_type && getMessageOneofStringValue(message,enum_list_name,"refKey",ref_key)) {
+    if (std::string ref_key; generate_value_type && getMessageOneofStringValue(message,enum_list_name,kRefKeyName,ref_key)) {
       key_value["value"] = type_value;
-      key_value[ref_key] = type_value;
+      key_value[replaceSpeicalWithUnderscoreChar(ref_key)] = type_value;
       rtn = true;
     }
     else {
@@ -894,14 +899,17 @@ bool getMessageParamEnumList(std::shared_ptr<Message> message, const std::string
             
             T typeValue;
             std::unordered_map <std::string, T> keyValue;
+            std::string paramKeyName = {};
+            getMessageStringValue(*m,kParamKeyName,paramKeyName);
             if (getMessageEnumList<T>(*m, kSelectionsName, typeValue, keyValue, true)) {
-              const std::string enumName = name +  "_" + std::to_string(j);
+              const std::string ixName = paramKeyName.empty()? std::to_string(j): replaceSpeicalWithUnderscoreChar(paramKeyName);
+              const std::string enumName = name +  "_" + param_name + "_" + ixName;
               std::unordered_map <std::string, T> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
               }              
               key_name_list[enumName] = key_name_list[name] + ", uint16_t ix = " + std::to_string(j);
-              enum_list[enumName] = reversedKeyValue;             
+              enum_list[enumName] = reversedKeyValue;
 
             }
           }
@@ -924,10 +932,12 @@ bool getMessageParamByteValueList(std::shared_ptr<Message> message, const std::s
           for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
             const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
             std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
-            
+            std::string paramKeyName = {};
+            getMessageStringValue(*m,kParamKeyName,paramKeyName);
             std::map <std::string,BYTE_TYPE> keyValue;
             if (getMessageByteValueList(*m, "value", keyValue)) {
-              const std::string enumName = name +  "_" + std::to_string(j);
+              const std::string ixName = paramKeyName.empty()? std::to_string(j): replaceSpeicalWithUnderscoreChar(paramKeyName);
+              const std::string enumName = name + "_" + param_name + "_" + ixName;
               key_name_list[enumName] = key_name_list[name] + ", uint16_t ix = " + std::to_string(j);
               value_list[enumName] = keyValue["value"];
           
@@ -953,11 +963,13 @@ bool getMessageParamStringEnumList(std::shared_ptr<Message> message, const std::
           for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
             const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
             std::shared_ptr<Message> *m = createMessageSharedPtr(mfield);
-            
+            std::string paramKeyName = {};
+            getMessageStringValue(*m,kParamKeyName,paramKeyName);            
             std::string typeValue;
             std::unordered_map <std::string, std::string> keyValue;
             if (getMessageStringEnumList(*m, kSelectionsName, typeValue, keyValue, true)) {
-              const std::string enumName = name +  "_" + std::to_string(j);
+              const std::string ixName = paramKeyName.empty()? std::to_string(j): replaceSpeicalWithUnderscoreChar(paramKeyName);
+              const std::string enumName = name +  "_" + param_name + "_" + ixName;
               std::unordered_map <std::string, std::string> reversedKeyValue;
               for (const auto &[key, value] : keyValue) {
                 reversedKeyValue[key] = value;
@@ -1122,7 +1134,7 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         for (auto const& [key, value]: key_value) {
           // Generate the enum body
           const std::string enumName = "ENUM_" + convertNameString(enum_name + "_" + key) + " = ";
-          if (value_type_name == "bool") {           
+          if (value_type_name == "bool") {
             std::cout << enumName << std::boolalpha << value << "," << std::endl;
           }
           else {
@@ -1132,7 +1144,7 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         // Generate the end of enum list
         std::cout << "};" << std::endl << std::endl;    
 
-        generateValueAccessor(enumClassName);   
+        generateValueAccessor(enumClassName);
       }
     }
   }
@@ -1248,7 +1260,7 @@ void createAttributeValueStream(std::shared_ptr<Message> message, const std::str
       else if (getMessageOneofStringValue(message,fieldName[i],"stringValue",stringValue)){
         valueString[i] = "\"" + stringValue + "\"";
       }
-      else if (getMessageOneofStringValue(message,fieldName[i],"refKey",stringValue)){
+      else if (getMessageOneofStringValue(message,fieldName[i],kRefKeyName,stringValue)){
         valueString[i] = "\"" + stringValue + "\"";
       }
       else {
@@ -1619,7 +1631,7 @@ int main(int argc, char** argv){
                 const auto  enumName = keyEnumName + " = " + std::to_string(j) + ",";
                 std::cout << enumName << std::endl;
                 
-                const auto value = replaceSpeicalWithUnscoreChar(key);
+                const auto value = replaceSpeicalWithUnderscoreChar(key);
                 keyEnumNameList[value] = enumKeyTypeName + " key = " + enumKeyTypeName + "::" + keyEnumName;
 
                 // Generate the map body
@@ -1786,6 +1798,17 @@ int main(int argc, char** argv){
 
           }
           else if (protoMsgName== "ActionsProfile" || protoMsgName == "NotificationsProfile"){
+            std::map<std::string, std::unordered_map<std::string, uint32_t>> uint32EnumList_res;
+            std::map<std::string, std::unordered_map<std::string, int32_t>> int32EnumList_res;
+            std::map<std::string, std::unordered_map<std::string, uint64_t>> uint64EnumList_res;
+            std::map<std::string, std::unordered_map<std::string, int64_t>> int64EnumList_res;
+            std::map<std::string, std::unordered_map<std::string, std::string>> stringEnumList_res;
+            std::map<std::string, std::unordered_map<std::string, float>> floatEnumList_res;
+            std::map<std::string, std::unordered_map<std::string, double>> doubleEnumList_res;
+            std::map<std::string, std::unordered_map<std::string, bool>> boolEnumList_res;
+            std::map<std::string, BYTE_TYPE> byteValueList_res;
+
+            const std::string paramName = protoMsgName == "ActionsProfile"? kReqParamName:kParamName;
 
             for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
            
@@ -1801,34 +1824,59 @@ int main(int argc, char** argv){
                 const auto enumName = keyEnumName + " = " + std::to_string(code) + ",";
                 std::cout << enumName << std::endl;
 
-                const auto paramName = replaceSpeicalWithUnscoreChar(key);
-                keyEnumNameList[paramName] = enumKeyTypeName + " code = " + enumKeyTypeName + "::" + keyEnumName;
+                const auto keyName = replaceSpeicalWithUnderscoreChar(key);
+                keyEnumNameList[keyName] = enumKeyTypeName + " code = " + enumKeyTypeName + "::" + keyEnumName;
 
-                getMessageParamEnumList<uint32_t>(*m, "params", paramName,uint32EnumList,keyEnumNameList);
-                getMessageParamEnumList<int32_t>(*m, "params", paramName,int32EnumList,keyEnumNameList);
-                getMessageParamEnumList<uint64_t>(*m, "params", paramName,uint64EnumList,keyEnumNameList);
-                getMessageParamEnumList<int64_t>(*m, "params", paramName,int64EnumList,keyEnumNameList);
-                getMessageParamEnumList<float>(*m, "params", paramName,floatEnumList,keyEnumNameList);
-                getMessageParamEnumList<double>(*m, "params", paramName,doubleEnumList,keyEnumNameList);
-                getMessageParamEnumList<bool>(*m, "params", paramName,boolEnumList,keyEnumNameList);                
-                getMessageParamStringEnumList(*m, "params", paramName,stringEnumList,keyEnumNameList);
-                getMessageParamByteValueList(*m, "params", paramName,byteValueList,keyEnumNameList);
+                // For request parameters
+                getMessageParamEnumList<uint32_t>(*m, paramName, keyName,uint32EnumList,keyEnumNameList);
+                getMessageParamEnumList<int32_t>(*m, paramName, keyName,int32EnumList,keyEnumNameList);
+                getMessageParamEnumList<uint64_t>(*m, paramName, keyName,uint64EnumList,keyEnumNameList);
+                getMessageParamEnumList<int64_t>(*m, paramName, keyName,int64EnumList,keyEnumNameList);
+                getMessageParamEnumList<float>(*m, paramName, keyName,floatEnumList,keyEnumNameList);
+                getMessageParamEnumList<double>(*m, paramName, keyName,doubleEnumList,keyEnumNameList);
+                getMessageParamEnumList<bool>(*m, paramName, keyName,boolEnumList,keyEnumNameList);
+                getMessageParamStringEnumList(*m, paramName, keyName,stringEnumList,keyEnumNameList);
+                getMessageParamByteValueList(*m, paramName, keyName,byteValueList,keyEnumNameList);
+
+                // For response parameters
+                getMessageParamEnumList<uint32_t>(*m, kResParamName, keyName,uint32EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<int32_t>(*m, kResParamName, keyName,int32EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<uint64_t>(*m, kResParamName, keyName,uint64EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<int64_t>(*m, kResParamName, keyName,int64EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<float>(*m, kResParamName, keyName,floatEnumList_res,keyEnumNameList);
+                getMessageParamEnumList<double>(*m, kResParamName, keyName,doubleEnumList_res,keyEnumNameList);
+                getMessageParamEnumList<bool>(*m, kResParamName, keyName,boolEnumList_res,keyEnumNameList);
+                getMessageParamStringEnumList(*m, kResParamName, keyName,stringEnumList_res,keyEnumNameList);
+                getMessageParamByteValueList(*m, kResParamName, keyName,byteValueList_res,keyEnumNameList);
+
               }
             }
             // Generate the end of enum code list
             std::cout << "};" << std::endl << std::endl;
 
-            // Generate the enum list
+            // Generate the request paramameter enum list
             generateEnumList<uint32_t>(uint32EnumList,keyEnumNameList);
             generateEnumList<int32_t>(int32EnumList,keyEnumNameList);
             generateEnumList<uint64_t>(uint64EnumList,keyEnumNameList);
             generateEnumList<int64_t>(int64EnumList,keyEnumNameList);
             generateEnumList<float>(floatEnumList,keyEnumNameList);
             generateEnumList<double>(doubleEnumList,keyEnumNameList);
-            generateEnumList<bool>(boolEnumList,keyEnumNameList);            
+            generateEnumList<bool>(boolEnumList,keyEnumNameList);
             generateStringEnumList(stringEnumList,keyEnumNameList);
             generateByteValueList(byteValueList,keyEnumNameList);
+
+            // Generate the response paramameter enum list
+            generateEnumList<uint32_t>(uint32EnumList_res,keyEnumNameList);
+            generateEnumList<int32_t>(int32EnumList_res,keyEnumNameList);
+            generateEnumList<uint64_t>(uint64EnumList_res,keyEnumNameList);
+            generateEnumList<int64_t>(int64EnumList_res,keyEnumNameList);
+            generateEnumList<float>(floatEnumList_res,keyEnumNameList);
+            generateEnumList<double>(doubleEnumList_res,keyEnumNameList);
+            generateEnumList<bool>(boolEnumList_res,keyEnumNameList);
+            generateStringEnumList(stringEnumList_res,keyEnumNameList);
+            generateByteValueList(byteValueList_res,keyEnumNameList);
           }
+
           // End of namespace
           std::cout << "} // namespace cdiProfile" << std::endl;
         }

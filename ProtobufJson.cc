@@ -329,6 +329,7 @@ static const char * kSelectionsListName = "list";
 static const char * kSelectionsListItemsName = "items";
 static const char * kSelectionsListItemLabelName = "label";
 static const char * kParamName = "params";
+static const char * kReqParamName = "requestParams";
 static const char * kResParamName = "responseParams";
 static const char * kRefKeyName = "refKey";
 static const char * kParamKeyName = "name";
@@ -1807,6 +1808,8 @@ int main(int argc, char** argv){
             std::map<std::string, std::unordered_map<std::string, bool>> boolEnumList_res;
             std::map<std::string, BYTE_TYPE> byteValueList_res;
 
+            const std::string paramName = protoMsgName == "ActionsProfile"? kReqParamName:kParamName;
+
             for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
            
               const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
@@ -1821,30 +1824,30 @@ int main(int argc, char** argv){
                 const auto enumName = keyEnumName + " = " + std::to_string(code) + ",";
                 std::cout << enumName << std::endl;
 
-                const auto actionName = replaceSpeicalWithUnderscoreChar(key);
-                keyEnumNameList[actionName] = enumKeyTypeName + " code = " + enumKeyTypeName + "::" + keyEnumName;
+                const auto keyName = replaceSpeicalWithUnderscoreChar(key);
+                keyEnumNameList[keyName] = enumKeyTypeName + " code = " + enumKeyTypeName + "::" + keyEnumName;
 
                 // For request parameters
-                getMessageParamEnumList<uint32_t>(*m, kParamName, actionName,uint32EnumList,keyEnumNameList);
-                getMessageParamEnumList<int32_t>(*m, kParamName, actionName,int32EnumList,keyEnumNameList);
-                getMessageParamEnumList<uint64_t>(*m, kParamName, actionName,uint64EnumList,keyEnumNameList);
-                getMessageParamEnumList<int64_t>(*m, kParamName, actionName,int64EnumList,keyEnumNameList);
-                getMessageParamEnumList<float>(*m, kParamName, actionName,floatEnumList,keyEnumNameList);
-                getMessageParamEnumList<double>(*m, kParamName, actionName,doubleEnumList,keyEnumNameList);
-                getMessageParamEnumList<bool>(*m, kParamName, actionName,boolEnumList,keyEnumNameList);
-                getMessageParamStringEnumList(*m, kParamName, actionName,stringEnumList,keyEnumNameList);
-                getMessageParamByteValueList(*m, kParamName, actionName,byteValueList,keyEnumNameList);
+                getMessageParamEnumList<uint32_t>(*m, paramName, keyName,uint32EnumList,keyEnumNameList);
+                getMessageParamEnumList<int32_t>(*m, paramName, keyName,int32EnumList,keyEnumNameList);
+                getMessageParamEnumList<uint64_t>(*m, paramName, keyName,uint64EnumList,keyEnumNameList);
+                getMessageParamEnumList<int64_t>(*m, paramName, keyName,int64EnumList,keyEnumNameList);
+                getMessageParamEnumList<float>(*m, paramName, keyName,floatEnumList,keyEnumNameList);
+                getMessageParamEnumList<double>(*m, paramName, keyName,doubleEnumList,keyEnumNameList);
+                getMessageParamEnumList<bool>(*m, paramName, keyName,boolEnumList,keyEnumNameList);
+                getMessageParamStringEnumList(*m, paramName, keyName,stringEnumList,keyEnumNameList);
+                getMessageParamByteValueList(*m, paramName, keyName,byteValueList,keyEnumNameList);
 
                 // For response parameters
-                getMessageParamEnumList<uint32_t>(*m, kResParamName, actionName,uint32EnumList_res,keyEnumNameList);
-                getMessageParamEnumList<int32_t>(*m, kResParamName, actionName,int32EnumList_res,keyEnumNameList);
-                getMessageParamEnumList<uint64_t>(*m, kResParamName, actionName,uint64EnumList_res,keyEnumNameList);
-                getMessageParamEnumList<int64_t>(*m, kResParamName, actionName,int64EnumList_res,keyEnumNameList);
-                getMessageParamEnumList<float>(*m, kResParamName, actionName,floatEnumList_res,keyEnumNameList);
-                getMessageParamEnumList<double>(*m, kResParamName, actionName,doubleEnumList_res,keyEnumNameList);
-                getMessageParamEnumList<bool>(*m, kResParamName, actionName,boolEnumList_res,keyEnumNameList);
-                getMessageParamStringEnumList(*m, kResParamName, actionName,stringEnumList_res,keyEnumNameList);
-                getMessageParamByteValueList(*m, kResParamName, actionName,byteValueList_res,keyEnumNameList);
+                getMessageParamEnumList<uint32_t>(*m, kResParamName, keyName,uint32EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<int32_t>(*m, kResParamName, keyName,int32EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<uint64_t>(*m, kResParamName, keyName,uint64EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<int64_t>(*m, kResParamName, keyName,int64EnumList_res,keyEnumNameList);
+                getMessageParamEnumList<float>(*m, kResParamName, keyName,floatEnumList_res,keyEnumNameList);
+                getMessageParamEnumList<double>(*m, kResParamName, keyName,doubleEnumList_res,keyEnumNameList);
+                getMessageParamEnumList<bool>(*m, kResParamName, keyName,boolEnumList_res,keyEnumNameList);
+                getMessageParamStringEnumList(*m, kResParamName, keyName,stringEnumList_res,keyEnumNameList);
+                getMessageParamByteValueList(*m, kResParamName, keyName,byteValueList_res,keyEnumNameList);
 
               }
             }

@@ -1120,7 +1120,7 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         std::stringstream mapStream;
 
         // Create the map header
-        mapStream << "static const std::map<uint32_t," + value_type_name + "> kMap" << enum_name << " = {" << std::endl;
+        mapStream << "static constexpr std::pair<const uint32_t, " + value_type_name + "> kMap" << enum_name << "Values[] = {" << std::endl;
 
         // Generate the enum header
         std::cout << "// " << enum_name << ": selection list" << std::endl;
@@ -1138,8 +1138,12 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         // Generate the end of enum list
         std::cout << "};" << std::endl << std::endl;
 
-        // Create the end of map
-        mapStream << "};";
+        // Create the end of map values
+        mapStream << "};" << std::endl << std::endl;
+
+        // Create the ETL map type using the values constant array
+        mapStream << "static constexpr etl::const_map_ext kMap" << enum_name << "{ kMap" << enum_name << "Values };";
+
         // Output the whole map
         std::cout << mapStream.str() << std::endl << std::endl;
 
@@ -1212,7 +1216,7 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
     std::stringstream mapStream;
 
     // Create the map header
-    mapStream << "static const std::map<uint32_t,const char*> kMap" << enum_name << " = {" << std::endl;
+    mapStream << "static constexpr std::pair<const uint32_t,const char*> kMap" << enum_name << "Values[] = {" << std::endl;
 
     // Generate the enum header
     std::cout << "// " << enum_name << ": selection list" << std::endl;
@@ -1230,8 +1234,12 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
     // Generate the end of enum list
     std::cout << "};" << std::endl << std::endl;
 
-    // Create the end of map
-    mapStream << "};";
+    // Create the end of map values
+    mapStream << "};" << std::endl << std::endl;
+
+    // Create the ETL map type using the values constant array
+    mapStream << "static constexpr etl::const_map_ext kMap" << enum_name << "{ kMap" << enum_name << "Values };";
+
     // Output the whole map
     std::cout << mapStream.str() << std::endl << std::endl;
 
@@ -1314,8 +1322,9 @@ void genertaeFileHeader() {
 //--------------------------------------------------------------------------------------------------------------------//
 
 #pragma once
+#include "etl/array_view.h"
+#include "etl/const_map.h"
 #include <string>
-#include <map>
 #include <vector>
 #include <variant> 
 #include <optional>
@@ -1643,8 +1652,7 @@ int main(int argc, char** argv){
             std::stringstream attributeValueStream;
 
             // Generate the map header
-            mapStream << "static const std::map<uint32_t,const char*> kMap"
-            << structNameStr << " = {" << std::endl;
+            mapStream << "static constexpr std::pair<const uint32_t,const char*> kMap" << structNameStr << "Values[] = {" << std::endl;
 
             //std::cerr << refl->FieldSize(*message, field) << std::endl;
             for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
@@ -1685,8 +1693,12 @@ int main(int argc, char** argv){
             // Generate the end of enum list
             std::cout << "};" << std::endl << std::endl;
 
-            // Generate the end of map
-            mapStream << "};";
+            // Generate the end of map values
+            mapStream << "};" << std::endl << std::endl;
+
+            // Generate the actual ETL map
+            mapStream << "static constexpr etl::const_map_ext kMap" << structNameStr << "{ kMap" << structNameStr << "Values };";
+
             std::cout << mapStream.str() << std::endl << std::endl;
 
             // Output attribute values such as min/max/unitsId
@@ -1704,11 +1716,13 @@ int main(int argc, char** argv){
             std::cout << "  " << attributeTypeName << " max;" << std::endl;
             std::cout << "};" << std::endl << std::endl;
 
-            std::cout << "static const std::map<uint32_t, struct " << attributeDataName << "> kMapAttribute"
-            << structNameStr << " = {" << std::endl;
+            std::cout << "static constexpr std::pair<const uint32_t, struct " << attributeDataName << "> kMapAttribute" << structNameStr << "Values[] = {" << std::endl;
             std::cout << attributeValueStream.str() << std::endl;
-            // Generate the end of attribute map
+            // Generate the end of attribute map values
             std::cout << "};" << std::endl << std::endl;
+
+            // Generate the ETL attribute map with those values
+            std::cout << "static constexpr etl::const_map_ext kMapAttribute" << structNameStr << "{ kMapAttribute" << structNameStr << "Values };" << std::endl << std::endl;
             
             // Generate the enum list
             generateEnumList<uint32_t>(uint32EnumList,keyEnumNameList);
@@ -1774,12 +1788,11 @@ int main(int argc, char** argv){
             mapStream <<"uint32_t type;" << std::endl;
             mapStream <<"uint32_t id;" << std::endl;
             mapStream <<"const char* name;" << std::endl;
-            mapStream <<"std::vector<const char*> params;" << std::endl;
+            mapStream <<"const etl::array_view<const char*> params;" << std::endl;
             mapStream << "};" << std::endl << std::endl;
         
             // Generate the map header
-            mapStream << "static const std::map<uint32_t, struct " << dataNameStr << "> kMap"
-            << structNameStr << " = {" << std::endl;
+            mapStream << "static constexpr std::pair<const uint32_t, struct " << dataNameStr << "> kMap" << structNameStr << "Values[] = {" << std::endl;
 
             //std::cerr << refl->FieldSize(*message, field) << std::endl;
             for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
@@ -1822,8 +1835,12 @@ int main(int argc, char** argv){
             // Generate the end of enum list
             std::cout << "};" << std::endl << std::endl;
 
-            // Generate the end of map
-            mapStream << "};";
+            // Generate the end of map values
+            mapStream << "};" << std::endl << std::endl;
+
+            // Generate the actual ETL map
+            mapStream << "static constexpr etl::const_map_ext kMap" << structNameStr << "{ kMap" << structNameStr << "Values };";
+
             std::cout << mapStream.str() << std::endl << std::endl;
 
           }

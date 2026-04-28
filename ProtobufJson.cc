@@ -1788,13 +1788,19 @@ int main(int argc, char** argv){
             mapStream <<"uint32_t type;" << std::endl;
             mapStream <<"uint32_t id;" << std::endl;
             mapStream <<"const char* name;" << std::endl;
-            mapStream <<"const etl::array_view<const char*> params;" << std::endl;
+            mapStream <<"const etl::array_view<const char* const> params;" << std::endl;
             mapStream << "};" << std::endl << std::endl;
         
-            // Generate the map header
-            mapStream << "static constexpr std::pair<const uint32_t, struct " << dataNameStr << "> kMap" << structNameStr << "Values[] = {" << std::endl;
+            // First pass: collect all event entries and emit enum values
+            struct EventEntry {
+              int j;
+              uint32_t type;
+              uint32_t id;
+              std::string name;
+              std::vector<std::string> key_list;
+            };
+            std::vector<EventEntry> eventEntries;
 
-            //std::cerr << refl->FieldSize(*message, field) << std::endl;
             for (int j =0; j < refl->FieldSize(*message, field); j++ ) {
            
               const Message &mfield = refl->GetRepeatedMessage(*message, field, j);
@@ -1819,21 +1825,42 @@ int main(int argc, char** argv){
                     + "_" + std::to_string(id) + " = " + std::to_string(j) + ",";
                 }
                 std::cout << enumName << std::endl;
-                
-                // Generate the map body
-                mapStream << "{" << j << ", {" << type << "," << id 
-                << ",\"" << name << "\",{"; 
-                if (getMessageParamNameList(*m, "params", key_list)) {
-                  for (auto & key : key_list) {
-                    mapStream << "\"" << key << "\",";
-                  }
-                  mapStream.seekp(-1, std::ios_base::end);
-                }
-                mapStream << "}}}," << std::endl;
+                getMessageParamNameList(*m, "params", key_list);
+                eventEntries.push_back({j, type, id, name, key_list});
               } 
             }
             // Generate the end of enum list
             std::cout << "};" << std::endl << std::endl;
+
+            // Generate static constexpr param arrays (needed for etl::array_view C-array constructor)
+            for (const auto& entry : eventEntries) {
+              if (!entry.key_list.empty()) {
+                mapStream << "static constexpr const char* kParams" << structNameStr << "_" << entry.j << "[] = {";
+                bool firstKey = true;
+                for (const auto& key : entry.key_list) {
+                  if (!firstKey) mapStream << ",";
+                  mapStream << "\"" << key << "\"";
+                  firstKey = false;
+                }
+                mapStream << "};" << std::endl;
+              }
+            }
+            mapStream << std::endl;
+
+            // Generate the map header
+            mapStream << "static constexpr std::pair<const uint32_t, struct " << dataNameStr << "> kMap" << structNameStr << "Values[] = {" << std::endl;
+
+            // Second pass: generate map values using array_view constructed from static arrays
+            for (const auto& entry : eventEntries) {
+              mapStream << "{" << entry.j << ", {" << entry.type << "," << entry.id
+                << ",\"" << entry.name << "\", ";
+              if (entry.key_list.empty()) {
+                mapStream << "{}";
+              } else {
+                mapStream << "kParams" << structNameStr << "_" << entry.j;
+              }
+              mapStream << "}}," << std::endl;
+            }
 
             // Generate the end of map values
             mapStream << "};" << std::endl << std::endl;

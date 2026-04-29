@@ -17,6 +17,7 @@
 #include <vector>
 #include <map>
 #include <regex>  
+#include <set>
 #include <unordered_map>
 using namespace std::string_literals; // enables s-suffix for std::string literals
 using namespace google::protobuf::compiler;
@@ -98,7 +99,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 2.01\n"
+       "Version: 2.02\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -1067,6 +1068,28 @@ bool getMessageParamNameList(std::shared_ptr<Message> message, const std::string
       }
       return rtn;
 } 
+
+void generateAttributeAccessors(const std::string &key, const std::string &keyParam,
+                                 const std::string &valueTypeName) {
+    // Attribute accessors are not meaningful for types without numeric range
+    static const std::set<std::string> kUnsupportedTypes = {
+        "bool", "std::string", "const std::string &", "std::vector<uint8_t>"
+    };
+    if (kUnsupportedTypes.count(valueTypeName)) {
+        return;
+    }
+    const std::string funcSignature = "bool get" + key + "Attributes(";
+    const std::string indent(funcSignature.size(), ' ');
+
+    std::cout << funcSignature
+              << valueTypeName << "* min = nullptr," << std::endl
+              << indent << valueTypeName << "* max = nullptr," << std::endl
+              << indent << "uint32_t* unitId = nullptr," << std::endl
+              << indent << "DisplayFormatStruct* displayFormat = nullptr," << std::endl
+              << indent << keyParam << ");" << std::endl;
+    std::cout << std::endl;
+}
+
 // Generate the number enum list
 template <typename T>
 void generateEnumList(const std::map<std::string, std::unordered_map<std::string, T>> &enum_list, const std::map<std::string, std::string> &enum_key_name) {
@@ -1078,18 +1101,17 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         continue;
       } 
       auto generateValueAccessor = [enum_name,enum_key_name](const std::string &type_name) {
-        std::cout << "// " << enum_name << ": get/set accessor" << std::endl;
+        std::cout << "// " << enum_name << ":" << std::endl;
         const std::string get_func_name = "get" + enum_name;
         std::cout <<  type_name << " " << get_func_name << "(" << enum_key_name.at(enum_name) << ");" << std::endl;
         const std::string set_func_name = "set" + enum_name;
         const std::string set_param_name = type_name + " value," + enum_key_name.at(enum_name);
-        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;  
-        std::cout << std::endl;
+        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;
       };
 
-      // Only generate get/set accessors
       if (key_value.find("value") != key_value.end()) {
         generateValueAccessor(value_type_name);
+        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), value_type_name);
         continue;
       }
 
@@ -1122,6 +1144,7 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         std::cout << mapStream.str() << std::endl << std::endl;
 
         generateValueAccessor(value_type_name);
+        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), value_type_name);
 
       }
       else {
@@ -1145,6 +1168,7 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         std::cout << "};" << std::endl << std::endl;    
 
         generateValueAccessor(enumClassName);
+        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), enumClassName);
       }
     }
   }
@@ -1170,13 +1194,14 @@ void generateStringEnumList(const std::map<std::string, std::unordered_map<std::
     if (key_value.empty()) {
       continue;
     }
+
     auto generateStringAccessor = [enum_name,enum_key_name]() {
-        std::cout << "// " << enum_name << ": get/set accessor" << std::endl;
+        std::cout << "// " << enum_name << ":" << std::endl;
         const std::string get_func_name = "get" + enum_name;
         std::cout << "const std::string & " << get_func_name << "(" << enum_key_name.at(enum_name) << ");" << std::endl;
-         const std::string set_func_name = "set" + enum_name;
+        const std::string set_func_name = "set" + enum_name;
         const std::string set_param_name = "const std::string & value," + enum_key_name.at(enum_name);
-        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;  
+        std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;
         std::cout << std::endl;
     };
     if (key_value.find("value") != key_value.end()) {
@@ -1277,6 +1302,7 @@ void createAttributeValueStream(std::shared_ptr<Message> message, const std::str
   }
 }
 
+
 /**
  * 
  */
@@ -1292,8 +1318,11 @@ void genertaeFileHeader() {
 #include <map>
 #include <vector>
 #include <variant> 
+#include <optional>
 
-namespace cdiProfile {)";
+namespace cdiProfile {
+
+struct DisplayFormatStruct;)";
 
   std::cout << header << std::endl << std::endl;
 }
@@ -1691,6 +1720,7 @@ int main(int argc, char** argv){
             generateEnumList<bool>(boolEnumList,keyEnumNameList);            
             generateStringEnumList(stringEnumList,keyEnumNameList);
             generateByteValueList(byteValueList,keyEnumNameList);
+
           }
           else if (std::string(options.messageName) == "ResultsProfile") {
             // Store the map data

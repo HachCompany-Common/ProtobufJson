@@ -1322,8 +1322,16 @@ void genertaeFileHeader() {
 //--------------------------------------------------------------------------------------------------------------------//
 
 #pragma once
+
+// ETL headers define iterators with a member named `current`, which conflicts with
+// Zephyr's `#define _current _kernel.cpus[0].current`. Temporarily suppress the
+// macro while parsing ETL headers so the member declaration compiles correctly.
+#pragma push_macro("_current")
+#undef _current
 #include "etl/array_view.h"
 #include "etl/const_map.h"
+#pragma pop_macro("_current")
+
 #include <string>
 #include <vector>
 #include <variant> 

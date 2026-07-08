@@ -1108,10 +1108,19 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         const std::string set_param_name = type_name + " value," + enum_key_name.at(enum_name);
         std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;
       };
-
+      // A RefKey to a selection list
       if (key_value.find("value") != key_value.end()) {
-        generateValueAccessor(value_type_name);
-        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), value_type_name);
+        std::string enum_value_type_name = value_type_name;
+        for (const auto &[key, value] : key_value) {
+          if (key != "value") {
+            if (value_type_name != "float" && value_type_name != "double") {
+              enum_value_type_name = "Enum" + key;
+            }
+            break;
+          }
+        }
+        generateValueAccessor(enum_value_type_name);
+        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), enum_value_type_name);
         continue;
       }
 

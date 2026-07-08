@@ -99,7 +99,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 2.02\n"
+       "Version: 2.03\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -1115,10 +1115,15 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
           if (key != "value") {
             if (value_type_name != "float" && value_type_name != "double") {
               enum_value_type_name = "Enum" + key;
+              // Generate forward declaration for the enum class
+              std::cout << "// Forward enum class declaration for a refkey selection list: " << enum_value_type_name  << std::endl;
+              const std::string enum_forward_enum_class = "enum class " + enum_value_type_name + ": " + value_type_name + ";";
+              std::cout << enum_forward_enum_class << std::endl;
             }
             break;
           }
         }
+
         generateValueAccessor(enum_value_type_name);
         generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), enum_value_type_name);
         continue;

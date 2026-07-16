@@ -99,7 +99,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 2.02\n"
+       "Version: 2.03\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -1093,7 +1093,9 @@ void generateAttributeAccessors(const std::string &key, const std::string &keyPa
 // Generate the number enum list
 template <typename T>
 void generateEnumList(const std::map<std::string, std::unordered_map<std::string, T>> &enum_list, const std::map<std::string, std::string> &enum_key_name) {
-    // Generate the enum header
+  static std::set<std::string> generated_forward_enum_declarations;  // Keep track of generated enums
+  std::set<std::string> generated_enum_class_definitions; // Keep track of generated enum class definitions
+  // Generate the enum header
   if (std::string value_type_name; getDataTypeName<T>(value_type_name)) {
 
     for ( auto const& [enum_name, key_value]:enum_list) {
@@ -1108,10 +1110,26 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         const std::string set_param_name = type_name + " value," + enum_key_name.at(enum_name);
         std::cout << "void " << set_func_name << "(" << set_param_name << ");" << std::endl;
       };
-
+      // A RefKey to a selection list
       if (key_value.find("value") != key_value.end()) {
-        generateValueAccessor(value_type_name);
-        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), value_type_name);
+        std::string enum_value_type_name = value_type_name;
+        for (const auto &[key, value] : key_value) {
+          if (key != "value") {
+            if (value_type_name != "float" && value_type_name != "double") {
+              enum_value_type_name = "Enum" + key;
+              // Generate forward declaration for the enum class
+              const std::string enum_forward_enum_class = "enum class " + enum_value_type_name + ": " + value_type_name + ";";
+              if (generated_enum_class_definitions.count(enum_value_type_name) == 0 && generated_forward_enum_declarations.insert(enum_value_type_name).second) {
+                std::cout << "// Forward enum class declaration for a refkey selection list: " << enum_value_type_name  << std::endl;             
+                std::cout << enum_forward_enum_class << std::endl << std::endl;
+              }
+            }
+            break;
+          }
+        }
+
+        generateValueAccessor(enum_value_type_name);
+        generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), enum_value_type_name);
         continue;
       }
 
@@ -1170,6 +1188,7 @@ void generateEnumList(const std::map<std::string, std::unordered_map<std::string
         }
         // Generate the end of enum list
         std::cout << "};" << std::endl << std::endl;    
+        generated_enum_class_definitions.insert(enumClassName); 
 
         generateValueAccessor(enumClassName);
         generateAttributeAccessors(enum_name, enum_key_name.at(enum_name), enumClassName);

@@ -1319,10 +1319,11 @@ void genertaeFileHeader() {
 #include <vector>
 #include <variant> 
 #include <optional>
+#include "base_payload_pb.h"
 
 namespace cdiProfile {
 
-struct DisplayFormatStruct;)";
+using DisplayFormatStruct = cdiLib::DisplayFormatStruct;)";
 
   std::cout << header << std::endl << std::endl;
 }

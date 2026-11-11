@@ -1845,8 +1845,9 @@ int main(int argc, char** argv){
               std::vector <std::string> key_list;
               if (getMessageStringValue(*m,"name",name) 
                 && getMessageFieldValue<uint32_t>(*m, "type", type)
-                && getMessageFieldValue<uint32_t>(*m, "id", id)
-                && getMessageStringValue(*m, "helpLink", help)) {
+                && getMessageFieldValue<uint32_t>(*m, "id", id)) {
+                // Get the help link if available
+                getMessageStringValue(*m, "helpLink", help);
                 // Generate the enum body
                 std::string enumName;
                 if (getMessageStringValue(*m,kSelectionsListItemLabelName,label) ) {

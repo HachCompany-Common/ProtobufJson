@@ -99,7 +99,7 @@ struct Options {
 static void usage(const char* progName, bool isHelp = 0) {
   fprintf(stderr,
        "Usage: %s [--proto_path=PATH...] [--verbose] <message_name> [data] \n"
-       "Version: 2.03\n"
+       "Version: 2.04\n"
        "  There are three names for this tool:\n"
        "    JsonToProto will assume the input is JSON and write binary protobuf to stdout.\n"
        "    ProtoToJson will assume the input is Proto and write JSON to stdout.\n"
@@ -1816,6 +1816,7 @@ int main(int argc, char** argv){
             mapStream <<"uint32_t type;" << std::endl;
             mapStream <<"uint32_t id;" << std::endl;
             mapStream <<"const char* name;" << std::endl;
+            mapStream <<"const char* help;" << std::endl;
             mapStream <<"const etl::array_view<const char* const> params;" << std::endl;
             mapStream << "};" << std::endl << std::endl;
         
@@ -1825,6 +1826,7 @@ int main(int argc, char** argv){
               uint32_t type;
               uint32_t id;
               std::string name;
+              std::string help;
               std::vector<std::string> key_list;
             };
             std::vector<EventEntry> eventEntries;
@@ -1839,10 +1841,13 @@ int main(int argc, char** argv){
               uint32_t type;
               uint32_t id;
               std::string label;
+              std::string help;
               std::vector <std::string> key_list;
               if (getMessageStringValue(*m,"name",name) 
                 && getMessageFieldValue<uint32_t>(*m, "type", type)
                 && getMessageFieldValue<uint32_t>(*m, "id", id)) {
+                // Get the help link if available
+                getMessageStringValue(*m, "helpLink", help);
                 // Generate the enum body
                 std::string enumName;
                 if (getMessageStringValue(*m,kSelectionsListItemLabelName,label) ) {
@@ -1854,7 +1859,7 @@ int main(int argc, char** argv){
                 }
                 std::cout << enumName << std::endl;
                 getMessageParamNameList(*m, "params", key_list);
-                eventEntries.push_back({j, type, id, name, key_list});
+                eventEntries.push_back({j, type, id, name, help, key_list});
               } 
             }
             // Generate the end of enum list
@@ -1881,7 +1886,7 @@ int main(int argc, char** argv){
             // Second pass: generate map values using array_view constructed from static arrays
             for (const auto& entry : eventEntries) {
               mapStream << "{" << entry.j << ", {" << entry.type << "," << entry.id
-                << ",\"" << entry.name << "\", ";
+                << ",\"" << entry.name << "\",\"" << entry.help << "\", ";
               if (entry.key_list.empty()) {
                 mapStream << "{}";
               } else {
